@@ -40,19 +40,54 @@ func (r Result) String() string {
 	}
 }
 
-func Compare(olders, newers []*packages.Package) Result {
-	return compare(olders, newers, nil)
-}
-
-// This is factored out for the sake of testing.
-func compare(olders, newers []*packages.Package, pkgMapKey func(string) string) Result {
+// Compare compares an "older" set of Go packages to a "newer" set of the same packages.
+// It tells whether the changes from "older" to "newer" require an increase in the major, minor, or patchlevel version numbers,
+// according to semver rules (https://semver.org/).
+//
+// The result is the _minimal_ change required.
+// The actual change required may be greater.
+// For example,
+// if a new method is added to a type,
+// this function will return Minor.
+// However, if something also changed about an existing method that breaks the old contract -
+// it accepts a narrower range of inputs, for example,
+// or returns errors in some new cases -
+// that may well require a major-version bump,
+// and this function can't detect those cases.
+//
+// You can be assured, however,
+// that if this function returns Major,
+// a minor-version bump won't suffice,
+// and if this function returns Minor,
+// a patchlevel bump won't suffice,
+// etc.
+//
+// The packages passed to this function should have no load errors
+// (that is, len(p.Errors) should be 0 for each package p in `olders` and `newers`).
+//
+// The function transformPkgPath takes a package's "path"
+// (the path by which it is imported, e.g. "github.com/bobg/modver")
+// and produces a canonical version of it for comparison purposes.
+// This allows packages in `olders` and `newers` to compare equal
+// even if they were loaded via two different paths.
+// For example, if two different versions of this module are loaded,
+// one from /tmp/older/github.com/bobg/modver
+// and one from /tmp/newer/github.com/bobg/modver,
+// transformPkgPath should be a function that strips off a "/tmp/older/" or a "/tmp/newer/" prefix from its input.
+// If transformPkgPath is nil, package paths are not transformed.
+func Compare(olders, newers []*packages.Package, transformPkgPath func(string) string) Result {
+	if transformPkgPath == nil {
+		transformPkgPath = func(in string) string { return in }
+	}
 	var (
-		older = makePackageMap(olders, pkgMapKey)
-		newer = makePackageMap(newers, pkgMapKey)
+		older = makePackageMap(olders, transformPkgPath)
+		newer = makePackageMap(newers, transformPkgPath)
 	)
 
 	spew.Config.DisableMethods = true // xxx
 	// fmt.Printf("xxx older:\n%s\nnewer:\n%s", spew.Sdump(older), spew.Sdump(newer))
+
+	c := comparer{samePackagePath: func(a, b string) bool { return transformPkgPath(a) == transformPkgPath(b) }}
 
 	for pkgPath, pkg := range older {
 		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
@@ -64,6 +99,8 @@ func compare(olders, newers []*packages.Package, pkgMapKey func(string) string) 
 		// fmt.Printf("xxx newPkg:\n%s", spew.Sdump(newPkg))
 
 		for id, obj := range pkg.TypesInfo.Defs {
+			fmt.Printf("xxx checking %s\n", id)
+
 			if !ast.IsExported(id.Name) {
 				continue
 			}
@@ -79,14 +116,18 @@ func compare(olders, newers []*packages.Package, pkgMapKey func(string) string) 
 				fmt.Printf("xxx new package %s does not have %s\n", pkgPath, id)
 				return Major
 			}
-			if res := compareTypes(obj.Type(), newObj.Type()); res == Major {
+			if res := c.compareTypes(obj.Type(), newObj.Type()); res == Major {
 				return Major
 			}
 		}
 	}
 
+	fmt.Printf("xxx no major changes\n")
+
 	// Second, look for minor-version changes.
 	for pkgPath, pkg := range newer {
+		fmt.Printf("xxx minor loop: pkgPath %s\n", pkgPath)
+
 		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
 			// Nothing in an internal package or subpackage is part of the public API.
 			continue
@@ -95,6 +136,7 @@ func compare(olders, newers []*packages.Package, pkgMapKey func(string) string) 
 		oldPkg := older[pkgPath]
 
 		for id, obj := range pkg.TypesInfo.Defs {
+			fmt.Printf("xxx checking %s\n", id)
 			if !ast.IsExported(id.Name) {
 				continue
 			}
@@ -108,7 +150,7 @@ func compare(olders, newers []*packages.Package, pkgMapKey func(string) string) 
 			if oldObj == nil {
 				return Minor
 			}
-			if res := compareTypes(oldObj.Type(), obj.Type()); res == Minor {
+			if res := c.compareTypes(oldObj.Type(), obj.Type()); res == Minor {
 				return Minor
 			}
 		}
@@ -131,7 +173,7 @@ func compare(olders, newers []*packages.Package, pkgMapKey func(string) string) 
 				return Patchlevel
 			}
 			fmt.Printf("xxx calling compareTypes on %s\n", id)
-			if res := compareTypes(obj.Type(), newObj.Type()); res != None {
+			if res := c.compareTypes(obj.Type(), newObj.Type()); res != None {
 				return Patchlevel
 			}
 		}
@@ -143,32 +185,29 @@ func compare(olders, newers []*packages.Package, pkgMapKey func(string) string) 
 func makePackageMap(pkgs []*packages.Package, keyFn func(string) string) map[string]*packages.Package {
 	result := make(map[string]*packages.Package)
 	for _, pkg := range pkgs {
-		key := pkg.PkgPath
-		if keyFn != nil {
-			key = keyFn(key)
-		}
-		result[key] = pkg
+		result[keyFn(pkg.PkgPath)] = pkg
 	}
 	return result
 }
 
-func compareTypes(older, newer types.Type) Result {
+func (c comparer) compareTypes(older, newer types.Type) Result {
 	// fmt.Printf("xxx compareTypes: older:\n%s\nnewer:\n%s", spew.Sdump(older), spew.Sdump(newer))
 
 	if olderStruct, ok := older.(*types.Struct); ok {
 		if newerStruct, ok := newer.(*types.Struct); ok {
-			return compareStructs(olderStruct, newerStruct)
+			return c.compareStructs(olderStruct, newerStruct)
 		}
 		fmt.Printf("xxx old struct vs. new non-struct\n")
 		return Major
 	}
-	if !types.Identical(older, newer) { // xxx should this be IdenticalIgnoreTags?
+	if !c.assignableTo(newer, older) { // xxx should this be IdenticalIgnoreTags?
+		fmt.Printf("xxx types not assignable: %s vs. %s\n", older, newer)
 		return Major
 	}
 	return None
 }
 
-func compareStructs(older, newer *types.Struct) Result {
+func (c comparer) compareStructs(older, newer *types.Struct) Result {
 	var (
 		olderMap = structMap(older)
 		newerMap = structMap(newer)
@@ -177,6 +216,7 @@ func compareStructs(older, newer *types.Struct) Result {
 	for name := range olderMap {
 		_, ok := newerMap[name]
 		if !ok {
+			fmt.Printf("xxx new struct has no %s field\n", name)
 			return Major
 		}
 		// xxx test newField type against field type
@@ -189,20 +229,11 @@ func compareStructs(older, newer *types.Struct) Result {
 		}
 	}
 
-	if !types.Identical(older, newer) {
+	if !c.identical(older, newer) {
 		return Patchlevel
 	}
 
 	return None
-}
-
-func methodMap(t *types.MethodSet) map[string]*types.Selection {
-	result := make(map[string]*types.Selection)
-	for i := 0; i < t.Len(); i++ {
-		sel := t.At(i)
-		result[sel.String()] = sel
-	}
-	return result
 }
 
 func structMap(t *types.Struct) map[string]*types.Var {

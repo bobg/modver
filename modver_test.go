@@ -55,7 +55,7 @@ func runtest(t *testing.T, subtree string, want Result) {
 				t.Fatal(err)
 			}
 
-			got := compare(older, newer, testPkgMapKey)
+			got := Compare(older, newer, testPkgMapKey)
 			if got != want {
 				t.Errorf("got %s, want %s", got, want)
 			}
