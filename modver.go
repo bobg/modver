@@ -220,7 +220,7 @@ func makePackageMap(pkgs []*packages.Package, keyFn func(string) string) map[str
 func (c *comparer) compareTypes(older, newer types.Type) Result {
 	// fmt.Printf("xxx compareTypes: older:\n%s\nnewer:\n%s", spew.Sdump(older), spew.Sdump(newer))
 
-	fmt.Printf("xxx %s compareTypes older = %s; newer = %s\n", strings.Repeat("  ", c.depth), older, newer)
+	fmt.Printf("xxx %scompareTypes older = %s; newer = %s\n", strings.Repeat("  ", c.depth), older, newer)
 	c.depth++
 	defer func() { c.depth-- }()
 

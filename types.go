@@ -4,10 +4,14 @@ import (
 	"go/types"
 )
 
-type comparer struct {
-	samePackagePath func(a, b string) bool
-	depth           int
-}
+type (
+	comparer struct {
+		samePackagePath func(a, b string) bool
+		depth           int
+		identicalStack  []typePair
+	}
+	typePair struct{ a, b types.Type }
+)
 
 // https://golang.org/ref/spec#Assignability
 func (c *comparer) assignableTo(v, t types.Type) bool {
@@ -83,9 +87,26 @@ func (c *comparer) assignableTo(v, t types.Type) bool {
 
 // https://golang.org/ref/spec#Type_identity
 func (c *comparer) identical(a, b types.Type) bool {
+	// indent := strings.Repeat("  ", c.depth)
+	// fmt.Printf("xxx %sidentical:\n%s%s\n%svs.\n%s%s\n", indent, indent, a, indent, indent, b)
+	// c.depth++
+	// defer func() { c.depth-- }()
+
 	if types.Identical(a, b) {
 		return true
 	}
+
+	// Break any infinite regress,
+	// e.g. when checking type Node struct { children []*Node }
+	for _, pair := range c.identicalStack {
+		if a == pair.a && b == pair.b {
+			return true
+		}
+	}
+	c.identicalStack = append(c.identicalStack, typePair{a: a, b: b})
+	defer func() { c.identicalStack = c.identicalStack[:len(c.identicalStack)-1] }()
+
+	// xxx check for defined types first
 
 	ua, ub := a.Underlying(), b.Underlying()
 
