@@ -28,6 +28,7 @@ func TestNone(t *testing.T) {
 func runtest(t *testing.T, subtree string, want Result) {
 	cfg := &packages.Config{
 		Mode: packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo,
+		Env:  append(os.Environ(), "GO111MODULE=off"),
 	}
 
 	olderTree := filepath.Join("testdata", subtree, "older")

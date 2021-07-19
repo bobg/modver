@@ -6,10 +6,11 @@ import (
 
 type comparer struct {
 	samePackagePath func(a, b string) bool
+	depth           int
 }
 
 // https://golang.org/ref/spec#Assignability
-func (c comparer) assignableTo(v, t types.Type) bool {
+func (c *comparer) assignableTo(v, t types.Type) bool {
 	if types.AssignableTo(v, t) {
 		return true
 	}
@@ -81,7 +82,7 @@ func (c comparer) assignableTo(v, t types.Type) bool {
 }
 
 // https://golang.org/ref/spec#Type_identity
-func (c comparer) identical(a, b types.Type) bool {
+func (c *comparer) identical(a, b types.Type) bool {
 	if types.Identical(a, b) {
 		return true
 	}
@@ -207,7 +208,7 @@ func (c comparer) identical(a, b types.Type) bool {
 }
 
 // https://golang.org/ref/spec#Method_sets
-func (c comparer) implements(v types.Type, t *types.Interface) bool {
+func (c *comparer) implements(v types.Type, t *types.Interface) bool {
 	if types.Implements(v, t) {
 		return true
 	}
@@ -226,7 +227,7 @@ func (c comparer) implements(v types.Type, t *types.Interface) bool {
 	return true
 }
 
-func (c comparer) tupleTypesIdentical(a, b *types.Tuple) bool {
+func (c *comparer) tupleTypesIdentical(a, b *types.Tuple) bool {
 	if a.Len() != b.Len() {
 		return false
 	}
@@ -239,7 +240,7 @@ func (c comparer) tupleTypesIdentical(a, b *types.Tuple) bool {
 	return true
 }
 
-func (c comparer) samePackage(a, b *types.Package) bool {
+func (c *comparer) samePackage(a, b *types.Package) bool {
 	return c.samePackagePath(a.Path(), b.Path())
 }
 
