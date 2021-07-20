@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"golang.org/x/tools/go/packages"
 )
 
 func TestMajor(t *testing.T) {
@@ -26,16 +24,12 @@ func TestNone(t *testing.T) {
 }
 
 func runtest(t *testing.T, subtree string, want Result) {
-	cfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo,
-		Env:  append(os.Environ(), "GO111MODULE=off"),
-	}
-
 	olderTree := filepath.Join("testdata", subtree, "older")
 	entries, err := os.ReadDir(olderTree)
 	if err != nil {
 		t.Fatal(err)
 	}
+	newerTree := filepath.Join("testdata", subtree, "newer")
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -45,27 +39,14 @@ func runtest(t *testing.T, subtree string, want Result) {
 		}
 		t.Run(entry.Name(), func(t *testing.T) {
 			olderDir := filepath.Join(olderTree, entry.Name())
-			older, err := packages.Load(cfg, "./"+olderDir+"/...")
+			newerDir := filepath.Join(newerTree, entry.Name())
+			got, err := CompareDirs(olderDir, newerDir)
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			newerDir := filepath.Join("testdata", subtree, "newer", entry.Name())
-			newer, err := packages.Load(cfg, "./"+newerDir+"/...")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			got := Compare(older, newer, testPkgMapKey)
 			if got != want {
 				t.Errorf("got %s, want %s", got, want)
 			}
 		})
 	}
-}
-
-func testPkgMapKey(inp string) string {
-	result := strings.Replace(inp, "/older/", "/", 1)
-	result = strings.Replace(result, "/newer/", "/", 1)
-	return result
 }
