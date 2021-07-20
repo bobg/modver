@@ -1,6 +1,7 @@
 package modver
 
 import (
+	"fmt"
 	"go/ast"
 	"go/types"
 
@@ -24,18 +25,18 @@ func (c *comparer) compareTypes(older, newer types.Type) Result {
 		// This is probably impossible.
 		// How can newer not be *types.Named if older is,
 		// and newer has the same name?
-		return Major
+		return Result{Code: Major, Why: fmt.Sprintf("%s went from defined type to non-defined type", older)}
 	}
 	if olderStruct, ok := older.(*types.Struct); ok {
 		if newerStruct, ok := newer.(*types.Struct); ok {
 			return c.compareStructs(olderStruct, newerStruct)
 		}
-		return Major
+		return Result{Code: Major, Why: fmt.Sprintf("%s went from struct to non-struct", older)}
 	}
 	if !c.assignableTo(newer, older) {
-		return Major
+		return Result{Code: Major, Why: fmt.Sprintf("%s is not assignable to %s", newer, older)}
 	}
-	return None
+	return Result{}
 }
 
 func (c *comparer) compareStructs(older, newer *types.Struct) Result {
@@ -47,10 +48,10 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 	for name, field := range olderMap {
 		newerField, ok := newerMap[name]
 		if !ok {
-			return Major
+			return Result{Code: Major, Why: fmt.Sprintf("old struct field %s was removed from %s", name, older)}
 		}
 		if !c.identical(field.Type(), newerField.Type()) {
-			return Major
+			return Result{Code: Major, Why: fmt.Sprintf("struct field %s changed in %s", name, older)}
 		}
 		// xxx what about field tags? Parse them for major vs minor changes?
 	}
@@ -58,15 +59,15 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 	for name := range newerMap {
 		_, ok := olderMap[name]
 		if !ok {
-			return Minor
+			return Result{Code: Minor, Why: fmt.Sprintf("struct field %s was added to %s", name, newer)}
 		}
 	}
 
 	if !c.identical(older, newer) {
-		return Patchlevel
+		return Result{Code: Patchlevel, Why: fmt.Sprintf("old and new versions of %s are not identical", older)}
 	}
 
-	return None
+	return Result{}
 }
 
 // https://golang.org/ref/spec#Assignability

@@ -23,7 +23,7 @@ func TestNone(t *testing.T) {
 	runtest(t, "none", None)
 }
 
-func runtest(t *testing.T, subtree string, want Result) {
+func runtest(t *testing.T, subtree string, want ResultCode) {
 	olderTree := filepath.Join("testdata", subtree, "older")
 	entries, err := os.ReadDir(olderTree)
 	if err != nil {
@@ -44,8 +44,10 @@ func runtest(t *testing.T, subtree string, want Result) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got != want {
+			if got.Code != want {
 				t.Errorf("got %s, want %s", got, want)
+			} else {
+				t.Log(got)
 			}
 		})
 	}

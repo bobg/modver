@@ -112,14 +112,14 @@ func Compare(olders, newers []*packages.Package, transformPkgPath func(string) s
 				continue
 			}
 			if newPkg == nil {
-				return Major
+				return Result{Code: Major, Why: fmt.Sprintf("no new version of package %s", pkgPath)}
 			}
 			newObj := findDef(newPkg.TypesInfo.Defs, id.Name)
 			if newObj == nil {
-				return Major
+				return Result{Code: Major, Why: fmt.Sprintf("no object %s in new version of package %s", id.Name, pkgPath)}
 			}
-			if res := c.compareTypes(obj.Type(), newObj.Type()); res == Major {
-				return Major
+			if res := c.compareTypes(obj.Type(), newObj.Type()); res.Code == Major {
+				return res
 			}
 		}
 	}
@@ -141,17 +141,17 @@ func Compare(olders, newers []*packages.Package, transformPkgPath func(string) s
 				continue
 			}
 			if oldPkg == nil {
-				return Minor
+				return Result{Code: Minor, Why: fmt.Sprintf("no old version of package %s", pkgPath)}
 			}
 			if isField(obj) {
 				continue
 			}
 			oldObj := findDef(oldPkg.TypesInfo.Defs, id.Name)
 			if oldObj == nil {
-				return Minor
+				return Result{Code: Minor, Why: fmt.Sprintf("no object %s in old version of package %s", id.Name, pkgPath)}
 			}
-			if res := c.compareTypes(oldObj.Type(), obj.Type()); res == Minor {
-				return Minor
+			if res := c.compareTypes(oldObj.Type(), obj.Type()); res.Code >= Minor {
+				return Result{Code: Minor, Why: res.Why}
 			}
 		}
 	}
@@ -160,7 +160,7 @@ func Compare(olders, newers []*packages.Package, transformPkgPath func(string) s
 	for pkgPath, pkg := range older {
 		newPkg := newer[pkgPath]
 		if newPkg == nil {
-			return Patchlevel
+			return Result{Code: Patchlevel, Why: fmt.Sprintf("no new version of package %s", pkgPath)}
 		}
 		for id, obj := range pkg.TypesInfo.Defs {
 			if obj == nil {
@@ -168,15 +168,15 @@ func Compare(olders, newers []*packages.Package, transformPkgPath func(string) s
 			}
 			newObj := findDef(newPkg.TypesInfo.Defs, id.Name)
 			if newObj == nil {
-				return Patchlevel
+				return Result{Code: Patchlevel, Why: fmt.Sprintf("no object %s in new version of package %s", id.Name, pkgPath)}
 			}
-			if res := c.compareTypes(obj.Type(), newObj.Type()); res != None {
-				return Patchlevel
+			if res := c.compareTypes(obj.Type(), newObj.Type()); res.Code != None {
+				return Result{Code: Patchlevel, Why: res.Why}
 			}
 		}
 	}
 
-	return None
+	return Result{}
 }
 
 // CompareDirs loads Go packages from the directories at older and newer
@@ -184,32 +184,32 @@ func Compare(olders, newers []*packages.Package, transformPkgPath func(string) s
 func CompareDirs(older, newer string) (Result, error) {
 	tmpdir, err := os.MkdirTemp("", "modver")
 	if err != nil {
-		return None, fmt.Errorf("creating tempdir: %w", err)
+		return Result{}, fmt.Errorf("creating tempdir: %w", err)
 	}
 	defer os.RemoveAll(tmpdir)
 
 	srcdir := filepath.Join(tmpdir, "src")
 	err = os.Mkdir(srcdir, 0755)
 	if err != nil {
-		return None, fmt.Errorf("creating %s: %w", srcdir, err)
+		return Result{}, fmt.Errorf("creating %s: %w", srcdir, err)
 	}
 
 	olderFull, err := filepath.Abs(older)
 	if err != nil {
-		return None, fmt.Errorf("making %s absolute: %w", older, err)
+		return Result{}, fmt.Errorf("making %s absolute: %w", older, err)
 	}
 	err = os.Symlink(olderFull, filepath.Join(srcdir, "older"))
 	if err != nil {
-		return None, fmt.Errorf("linking %s/older to %s: %w", srcdir, olderFull, err)
+		return Result{}, fmt.Errorf("linking %s/older to %s: %w", srcdir, olderFull, err)
 	}
 
 	newerFull, err := filepath.Abs(newer)
 	if err != nil {
-		return None, fmt.Errorf("making %s absolute: %w", newer, err)
+		return Result{}, fmt.Errorf("making %s absolute: %w", newer, err)
 	}
 	err = os.Symlink(newerFull, filepath.Join(srcdir, "newer"))
 	if err != nil {
-		return None, fmt.Errorf("linking %s/newer to %s: %w", srcdir, newerFull, err)
+		return Result{}, fmt.Errorf("linking %s/newer to %s: %w", srcdir, newerFull, err)
 	}
 
 	cfg := &packages.Config{
@@ -220,24 +220,24 @@ func CompareDirs(older, newer string) (Result, error) {
 
 	olders, err := packages.Load(cfg, "./older/...")
 	if err != nil {
-		return None, fmt.Errorf("loading %s/older/...: %w", srcdir, err)
+		return Result{}, fmt.Errorf("loading %s/older/...: %w", srcdir, err)
 	}
 
 	// xxx keeping this check causes the hashsplit test to fail
 	// for _, p := range olders {
 	// 	if len(p.Errors) > 0 {
-	// 		return None, errpkg{pkg: p}
+	// 		return Result{}, errpkg{pkg: p}
 	// 	}
 	// }
 
 	newers, err := packages.Load(cfg, "./newer/...")
 	if err != nil {
-		return None, fmt.Errorf("loading %s/newer/...: %w", srcdir, err)
+		return Result{}, fmt.Errorf("loading %s/newer/...: %w", srcdir, err)
 	}
 
 	// for _, p := range newers {
 	// 	if len(p.Errors) > 0 {
-	// 		return None, errpkg{pkg: p}
+	// 		return Result{}, errpkg{pkg: p}
 	// 	}
 	// }
 
@@ -268,20 +268,20 @@ func CompareDirs(older, newer string) (Result, error) {
 func CompareGit(ctx context.Context, repoURL, olderSHA, newerSHA string) (Result, error) {
 	parent, err := os.MkdirTemp("", "modver")
 	if err != nil {
-		return None, fmt.Errorf("creating tmpdir: %w", err)
+		return Result{}, fmt.Errorf("creating tmpdir: %w", err)
 	}
 	defer os.RemoveAll(parent)
 
 	olderDir := filepath.Join(parent, "older")
 	err = gitSetup(ctx, repoURL, olderDir, olderSHA)
 	if err != nil {
-		return None, fmt.Errorf("setting up older clone: %w", err)
+		return Result{}, fmt.Errorf("setting up older clone: %w", err)
 	}
 
 	newerDir := filepath.Join(parent, "newer")
 	err = gitSetup(ctx, repoURL, newerDir, newerSHA)
 	if err != nil {
-		return None, fmt.Errorf("setting up newer clone: %w", err)
+		return Result{}, fmt.Errorf("setting up newer clone: %w", err)
 	}
 
 	return CompareDirs(olderDir, newerDir)
