@@ -17,7 +17,19 @@ import (
 // It tells whether the changes from "older" to "newer" require an increase in the major, minor, or patchlevel version numbers,
 // according to semver rules (https://semver.org/).
 //
-// The result is the _minimal_ change required.
+// Briefly, a major-version bump is needed for incompatible changes in the public API,
+// such as when a type is removed or renamed,
+// or parameters or results are added to or removed from a function.
+// Old callers cannot expect to use the new version without being updated.
+//
+// A minor-version bump is needed when new features are added to the public API,
+// like a new entrypoint or new fields in an existing struct.
+// Old callers _can_ continue using the new version without being updated,
+// but callers depending on the new features cannot use the old version.
+//
+// A patchlevel bump is needed for most other changes.
+//
+// The result of Compare is the _minimal_ change required.
 // The actual change required may be greater.
 // For example,
 // if a new method is added to a type,
@@ -44,6 +56,7 @@ import (
 // in your Config.Mode, and you'll probably also want:
 //   append(os.Environ(), "GO111MODULE=off")
 // in your Config.Env.
+// See CompareDirs for an example of how to call Compare with the result of packages.Load.
 //
 // The function transformPkgPath takes a package's "path"
 // (the path by which it is imported, e.g. "github.com/bobg/modver"),

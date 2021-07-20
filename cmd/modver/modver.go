@@ -1,3 +1,7 @@
+// Command modver compares two versions of the same Go packages
+// and tells whether a Major, Minor, or Patchlevel version bump
+// (or None)
+// is needed to go from one to the other.
 package main
 
 import (
