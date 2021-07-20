@@ -249,10 +249,10 @@ func CompareDirs(older, newer string) (Result, error) {
 	}
 	return Compare(olders, newers, func(inp string) string {
 		if result := strings.TrimPrefix(inp, "_"+srcdir+"/older"); result != inp {
-			return "_"+result
+			return "_" + result
 		}
 		if result := strings.TrimPrefix(inp, "_"+srcdir+"/newer"); result != inp {
-			return "_"+result
+			return "_" + result
 		}
 		return inp
 	}), nil
