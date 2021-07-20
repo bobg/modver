@@ -7,7 +7,6 @@ import (
 type (
 	comparer struct {
 		samePackagePath func(a, b string) bool
-		depth           int
 		identicalStack  []typePair
 	}
 	typePair struct{ a, b types.Type }

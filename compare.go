@@ -270,6 +270,7 @@ func (p errpkg) Error() string {
 	return fmt.Sprintf("error(s) loading package %s: %s", p.pkg.PkgPath, strings.Join(strs, "; "))
 }
 
+// CompareGit compares the Go packages in two revisions of a Git repo at the given URL.
 func CompareGit(ctx context.Context, repoURL, olderSHA, newerSHA string) (Result, error) {
 	parent, err := os.MkdirTemp("", "modver")
 	if err != nil {
