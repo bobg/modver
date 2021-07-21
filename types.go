@@ -10,8 +10,7 @@ import (
 
 type (
 	comparer struct {
-		samePackagePath func(a, b string) bool
-		identicalStack  []typePair
+		identicalStack []typePair
 	}
 	typePair struct{ a, b types.Type }
 )
@@ -314,7 +313,7 @@ func (c *comparer) tupleTypesIdentical(a, b *types.Tuple) bool {
 }
 
 func (c *comparer) samePackage(a, b *types.Package) bool {
-	return c.samePackagePath(a.Path(), b.Path())
+	return a.Path() == b.Path()
 }
 
 // https://golang.org/ref/spec#Representability
@@ -365,10 +364,10 @@ func methodMap(t types.Type) map[string]types.Object {
 	return result
 }
 
-func makePackageMap(pkgs []*packages.Package, keyFn func(string) string) map[string]*packages.Package {
+func makePackageMap(pkgs []*packages.Package) map[string]*packages.Package {
 	result := make(map[string]*packages.Package)
 	for _, pkg := range pkgs {
-		result[keyFn(pkg.PkgPath)] = pkg
+		result[pkg.PkgPath] = pkg
 	}
 	return result
 }

@@ -13,7 +13,7 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// Compare compares an "older" set of Go packages to a "newer" set of the same packages.
+// Compare compares an "older" version of a Go module to a "newer" version of the same module.
 // It tells whether the changes from "older" to "newer" require an increase in the major, minor, or patchlevel version numbers,
 // according to semver rules (https://semver.org/).
 //
@@ -53,47 +53,15 @@ import (
 // (see https://pkg.go.dev/golang.org/x/tools/go/packages#Load),
 // you will need at least
 //   packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo
-// in your Config.Mode, and you'll probably also want:
-//   append(os.Environ(), "GO111MODULE=off")
-// in your Config.Env.
+// in your Config.Mode.
 // See CompareDirs for an example of how to call Compare with the result of packages.Load.
-//
-// The function transformPkgPath takes a package's "path"
-// (the path by which it is imported, e.g. "github.com/bobg/modver"),
-// or the path of something defined in it
-// (such as a subpackage),
-// and produces a canonical version of it for comparison purposes.
-// This allows packages in `olders` and `newers` to compare equal
-// even if they were loaded via two different paths.
-// For example, if two different versions of this module are loaded,
-// one from /tmp/older/github.com/bobg/modver
-// and one from /tmp/newer/github.com/bobg/modver,
-// transformPkgPath should be a function that strips off a "/tmp/older/" or a "/tmp/newer/" prefix from its input.
-// If transformPkgPath is nil, package paths are not transformed.
-func Compare(olders, newers []*packages.Package, transformPkgPath func(string) string) Result {
-	// for _, o := range olders {
-	// 	if len(o.Errors) > 0 {
-	// 		packages.PrintErrors(olders)
-	// 		os.Exit(1)
-	// 	}
-	// }
-	// for _, n := range newers {
-	// 	if len(n.Errors) > 0 {
-	// 		packages.PrintErrors(newers)
-	// 		os.Exit(1)
-	// 	}
-	// }
-
-	if transformPkgPath == nil {
-		transformPkgPath = func(in string) string { return in }
-	}
+func Compare(olders, newers []*packages.Package) Result {
 	var (
-		older = makePackageMap(olders, transformPkgPath)
-		newer = makePackageMap(newers, transformPkgPath)
+		older = makePackageMap(olders)
+		newer = makePackageMap(newers)
 	)
 
-	c := &comparer{samePackagePath: func(a, b string) bool { return transformPkgPath(a) == transformPkgPath(b) }}
-
+	var c comparer
 	for pkgPath, pkg := range older {
 		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
 			// Nothing in an internal package or subpackage is part of the public API.
@@ -179,90 +147,48 @@ func Compare(olders, newers []*packages.Package, transformPkgPath func(string) s
 	return Result{}
 }
 
-// CompareDirs loads Go packages from the directories at older and newer
+// CompareDirs loads Go modules from the directories at older and newer
 // and calls Compare on the results.
 func CompareDirs(older, newer string) (Result, error) {
-	tmpdir, err := os.MkdirTemp("", "modver")
-	if err != nil {
-		return Result{}, fmt.Errorf("creating tempdir: %w", err)
-	}
-	defer os.RemoveAll(tmpdir)
-
-	srcdir := filepath.Join(tmpdir, "src")
-	err = os.Mkdir(srcdir, 0755)
-	if err != nil {
-		return Result{}, fmt.Errorf("creating %s: %w", srcdir, err)
-	}
-
-	olderFull, err := filepath.Abs(older)
-	if err != nil {
-		return Result{}, fmt.Errorf("making %s absolute: %w", older, err)
-	}
-	err = os.Symlink(olderFull, filepath.Join(srcdir, "older"))
-	if err != nil {
-		return Result{}, fmt.Errorf("linking %s/older to %s: %w", srcdir, olderFull, err)
-	}
-
-	newerFull, err := filepath.Abs(newer)
-	if err != nil {
-		return Result{}, fmt.Errorf("making %s absolute: %w", newer, err)
-	}
-	err = os.Symlink(newerFull, filepath.Join(srcdir, "newer"))
-	if err != nil {
-		return Result{}, fmt.Errorf("linking %s/newer to %s: %w", srcdir, newerFull, err)
-	}
-
 	cfg := &packages.Config{
 		Mode: packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo,
-		Env:  append(os.Environ(), "GO111MODULE=off"),
-		Dir:  srcdir,
+		Dir:  older,
 	}
-
-	olders, err := packages.Load(cfg, "./older/...")
+	olders, err := packages.Load(cfg, "./...")
 	if err != nil {
-		return Result{}, fmt.Errorf("loading %s/older/...: %w", srcdir, err)
+		return Result{}, fmt.Errorf("loading %s/...: %w", older, err)
+	}
+	for _, p := range olders {
+		if len(p.Errors) > 0 {
+			return Result{}, errpkg{pkg: p}
+		}
 	}
 
-	// xxx keeping this check causes the hashsplit test to fail
-	// for _, p := range olders {
-	// 	if len(p.Errors) > 0 {
-	// 		return Result{}, errpkg{pkg: p}
-	// 	}
-	// }
-
-	newers, err := packages.Load(cfg, "./newer/...")
+	cfg.Dir = newer
+	newers, err := packages.Load(cfg, "./...")
 	if err != nil {
-		return Result{}, fmt.Errorf("loading %s/newer/...: %w", srcdir, err)
+		return Result{}, fmt.Errorf("loading %s/...: %w", newer, err)
+	}
+	for _, p := range newers {
+		if len(p.Errors) > 0 {
+			return Result{}, errpkg{pkg: p}
+		}
 	}
 
-	// for _, p := range newers {
-	// 	if len(p.Errors) > 0 {
-	// 		return Result{}, errpkg{pkg: p}
-	// 	}
-	// }
-
-	return Compare(olders, newers, func(inp string) string {
-		if result := strings.TrimPrefix(inp, "_"+srcdir+"/older"); result != inp {
-			return "_" + result
-		}
-		if result := strings.TrimPrefix(inp, "_"+srcdir+"/newer"); result != inp {
-			return "_" + result
-		}
-		return inp
-	}), nil
+	return Compare(olders, newers), nil
 }
 
-// type errpkg struct {
-// 	pkg *packages.Package
-// }
+type errpkg struct {
+	pkg *packages.Package
+}
 
-// func (p errpkg) Error() string {
-// 	strs := make([]string, 0, len(p.pkg.Errors))
-// 	for _, e := range p.pkg.Errors {
-// 		strs = append(strs, e.Error())
-// 	}
-// 	return fmt.Sprintf("error(s) loading package %s: %s", p.pkg.PkgPath, strings.Join(strs, "; "))
-// }
+func (p errpkg) Error() string {
+	strs := make([]string, 0, len(p.pkg.Errors))
+	for _, e := range p.pkg.Errors {
+		strs = append(strs, e.Error())
+	}
+	return fmt.Sprintf("error(s) loading package %s: %s", p.pkg.PkgPath, strings.Join(strs, "; "))
+}
 
 // CompareGit compares the Go packages in two revisions of a Git repo at the given URL.
 func CompareGit(ctx context.Context, repoURL, olderSHA, newerSHA string) (Result, error) {
