@@ -82,7 +82,7 @@ func Compare(olders, newers []*packages.Package) Result {
 			if newPkg == nil {
 				return Result{Code: Major, Why: fmt.Sprintf("no new version of package %s", pkgPath)}
 			}
-			newObj := findDef(newPkg.TypesInfo.Defs, id.Name)
+			newObj := findDef(newPkg.TypesInfo.Defs, id.Name, obj)
 			if newObj == nil {
 				return Result{Code: Major, Why: fmt.Sprintf("no object %s in new version of package %s", id.Name, pkgPath)}
 			}
@@ -114,7 +114,7 @@ func Compare(olders, newers []*packages.Package) Result {
 			if isField(obj) {
 				continue
 			}
-			oldObj := findDef(oldPkg.TypesInfo.Defs, id.Name)
+			oldObj := findDef(oldPkg.TypesInfo.Defs, id.Name, obj)
 			if oldObj == nil {
 				return Result{Code: Minor, Why: fmt.Sprintf("no object %s in old version of package %s", id.Name, pkgPath)}
 			}
@@ -134,7 +134,7 @@ func Compare(olders, newers []*packages.Package) Result {
 			if obj == nil {
 				continue
 			}
-			newObj := findDef(newPkg.TypesInfo.Defs, id.Name)
+			newObj := findDef(newPkg.TypesInfo.Defs, id.Name, obj)
 			if newObj == nil {
 				return Result{Code: Patchlevel, Why: fmt.Sprintf("no object %s in new version of package %s", id.Name, pkgPath)}
 			}

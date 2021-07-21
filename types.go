@@ -381,10 +381,12 @@ func structMap(t *types.Struct) map[string]*types.Var {
 	return result
 }
 
-func findDef(defs map[*ast.Ident]types.Object, name string) types.Object {
+func findDef(defs map[*ast.Ident]types.Object, name string, obj types.Object) types.Object {
 	for k, v := range defs {
 		if k.Name == name && !isField(v) {
-			return v
+			if (obj.Parent() == nil) == (v.Parent() == nil) { // Both methods or both not methods?
+				return v
+			}
 		}
 	}
 	return nil
