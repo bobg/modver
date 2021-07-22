@@ -24,18 +24,18 @@ func (c *comparer) compareTypes(older, newer types.Type) Result {
 		// This is probably impossible.
 		// How can newer not be *types.Named if older is,
 		// and newer has the same name?
-		return Result{Code: Major, Why: fmt.Sprintf("%s went from defined type to non-defined type", older)}
+		return wrapped{r: Major, why: fmt.Sprintf("%s went from defined type to non-defined type", older)}
 	}
 	if olderStruct, ok := older.(*types.Struct); ok {
 		if newerStruct, ok := newer.(*types.Struct); ok {
 			return c.compareStructs(olderStruct, newerStruct)
 		}
-		return Result{Code: Major, Why: fmt.Sprintf("%s went from struct to non-struct", older)}
+		return wrapped{r: Major, why: fmt.Sprintf("%s went from struct to non-struct", older)}
 	}
 	if !c.assignableTo(newer, older) {
-		return Result{Code: Major, Why: fmt.Sprintf("%s is not assignable to %s", newer, older)}
+		return wrapped{r: Major, why: fmt.Sprintf("%s is not assignable to %s", newer, older)}
 	}
-	return Result{}
+	return None
 }
 
 func (c *comparer) compareStructs(older, newer *types.Struct) Result {
@@ -47,10 +47,10 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 	for name, field := range olderMap {
 		newerField, ok := newerMap[name]
 		if !ok {
-			return Result{Code: Major, Why: fmt.Sprintf("old struct field %s was removed from %s", name, older)}
+			return wrapped{r: Major, why: fmt.Sprintf("old struct field %s was removed from %s", name, older)}
 		}
 		if !c.identical(field.Type(), newerField.Type()) {
-			return Result{Code: Major, Why: fmt.Sprintf("struct field %s changed in %s", name, older)}
+			return wrapped{r: Major, why: fmt.Sprintf("struct field %s changed in %s", name, older)}
 		}
 		// xxx what about field tags? Parse them for major vs minor changes?
 	}
@@ -58,15 +58,15 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 	for name := range newerMap {
 		_, ok := olderMap[name]
 		if !ok {
-			return Result{Code: Minor, Why: fmt.Sprintf("struct field %s was added to %s", name, newer)}
+			return wrapped{r: Minor, why: fmt.Sprintf("struct field %s was added to %s", name, newer)}
 		}
 	}
 
 	if !c.identical(older, newer) {
-		return Result{Code: Patchlevel, Why: fmt.Sprintf("old and new versions of %s are not identical", older)}
+		return wrapped{r: Patchlevel, why: fmt.Sprintf("old and new versions of %s are not identical", older)}
 	}
 
-	return Result{}
+	return None
 }
 
 // https://golang.org/ref/spec#Assignability

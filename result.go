@@ -2,18 +2,11 @@ package modver
 
 import "fmt"
 
-// Result is the result of Compare,
-// consisting of a ResultCode and an optional human-readable explanation.
-type Result struct {
-	Code ResultCode
-	Why  string
-}
-
-func (r Result) String() string {
-	if r.Why != "" {
-		return fmt.Sprintf("%s: %s", r.Code, r.Why)
-	}
-	return r.Code.String()
+// Result is the result of Compare.
+type Result interface {
+	Code() ResultCode
+	Sub(code ResultCode) Result
+	String() string
 }
 
 // ResultCode is the required version-bump level as detected by Compare.
@@ -25,6 +18,9 @@ const (
 	Minor
 	Major
 )
+
+func (r ResultCode) Code() ResultCode           { return r }
+func (r ResultCode) Sub(code ResultCode) Result { return code }
 
 func (r ResultCode) String() string {
 	switch r {
@@ -39,4 +35,16 @@ func (r ResultCode) String() string {
 	default:
 		return "unknown Result value"
 	}
+}
+
+type wrapped struct {
+	r   Result
+	why string
+}
+
+func (w wrapped) Code() ResultCode           { return w.r.Code() }
+func (w wrapped) Sub(code ResultCode) Result { return wrapped{r: w.r.Sub(code), why: w.why} }
+
+func (w wrapped) String() string {
+	return fmt.Sprintf("%s: %s", w.why, w.r)
 }

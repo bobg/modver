@@ -44,7 +44,7 @@ func runtest(t *testing.T, subtree string, want ResultCode) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got.Code != want {
+			if got.Code() != want {
 				t.Errorf("want %s, got %s", want, got)
 			} else {
 				t.Log(got)
