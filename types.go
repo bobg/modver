@@ -178,9 +178,14 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 
 	if na, ok := a.(*types.Named); ok {
 		if nb, ok := b.(*types.Named); ok {
-			return na.Obj().Name() == nb.Obj().Name()
+			if na.Obj().Name() != nb.Obj().Name() {
+				return false
+			}
+			// Can't return true yet just because the types have equal names.
+			// Continue to checking their underlying types.
+		} else {
+			return false
 		}
-		return false
 	}
 
 	ua, ub := a.Underlying(), b.Underlying()
