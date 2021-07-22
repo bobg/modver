@@ -61,7 +61,7 @@ func Compare(olders, newers []*packages.Package) Result {
 		newer = makePackageMap(newers)
 	)
 
-	var c comparer
+	c := newComparer()
 	for pkgPath, pkg := range older {
 		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
 			// Nothing in an internal package or subpackage is part of the public API.

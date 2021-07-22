@@ -10,10 +10,15 @@ import (
 
 type (
 	comparer struct {
-		identicalStack []typePair
+		stack []typePair
+		cache map[typePair]bool
 	}
 	typePair struct{ a, b types.Type }
 )
+
+func newComparer() *comparer {
+	return &comparer{cache: make(map[typePair]bool)}
+}
 
 func (c *comparer) compareTypes(older, newer types.Type) Result {
 	if olderNamed, ok := older.(*types.Named); ok {
@@ -142,22 +147,41 @@ func (c *comparer) assignableTo(v, t types.Type) bool {
 }
 
 // https://golang.org/ref/spec#Type_identity
-func (c *comparer) identical(a, b types.Type) bool {
+func (c *comparer) identical(a, b types.Type) (res bool) {
+	if res, ok := c.cache[typePair{a, b}]; ok {
+		return res
+	}
+	if res, ok := c.cache[typePair{b, a}]; ok {
+		return res
+	}
+	doCache := true
+	defer func() {
+		if doCache {
+			c.cache[typePair{a, b}] = res
+		}
+	}()
+
 	if types.Identical(a, b) {
 		return true
 	}
 
 	// Break any infinite regress,
 	// e.g. when checking type Node struct { children []*Node }
-	for _, pair := range c.identicalStack {
+	for _, pair := range c.stack {
 		if a == pair.a && b == pair.b {
+			doCache = false
 			return true
 		}
 	}
-	c.identicalStack = append(c.identicalStack, typePair{a: a, b: b})
-	defer func() { c.identicalStack = c.identicalStack[:len(c.identicalStack)-1] }()
+	c.stack = append(c.stack, typePair{a: a, b: b})
+	defer func() { c.stack = c.stack[:len(c.stack)-1] }()
 
-	// xxx check for defined types first
+	if na, ok := a.(*types.Named); ok {
+		if nb, ok := b.(*types.Named); ok {
+			return na.Obj().Name() == nb.Obj().Name()
+		}
+		return false
+	}
 
 	ua, ub := a.Underlying(), b.Underlying()
 
