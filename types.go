@@ -448,22 +448,3 @@ func structMap(t *types.Struct) map[string]*types.Var {
 	}
 	return result
 }
-
-func findDef(defs map[*ast.Ident]types.Object, name string, obj types.Object) types.Object {
-	for k, v := range defs {
-		if k.Name == name && !isField(v) {
-			if (obj.Parent() == nil) == (v.Parent() == nil) { // Both methods or both not methods?
-				return v
-			}
-		}
-	}
-	return nil
-}
-
-func isField(obj types.Object) bool {
-	if obj.Parent() != nil {
-		return false
-	}
-	_, ok := obj.Type().(*types.Signature)
-	return !ok
-}

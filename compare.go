@@ -79,12 +79,6 @@ func Compare(olders, newers []*packages.Package) Result {
 			if !ast.IsExported(id) {
 				continue
 			}
-			if obj == nil {
-				continue
-			}
-			if isField(obj) {
-				continue
-			}
 			if newPkg == nil {
 				return wrapped{r: Major, why: fmt.Sprintf("no new version of package %s", pkgPath)}
 			}
@@ -118,12 +112,6 @@ func Compare(olders, newers []*packages.Package) Result {
 			if !ast.IsExported(id) {
 				continue
 			}
-			if obj == nil {
-				continue
-			}
-			if isField(obj) {
-				continue
-			}
 			if oldPkg == nil {
 				return wrapped{r: Minor, why: fmt.Sprintf("no old version of package %s", pkgPath)}
 			}
@@ -151,9 +139,6 @@ func Compare(olders, newers []*packages.Package) Result {
 		}
 		newTopObjs := makeTopObjs(newPkg)
 		for id, obj := range topObjs {
-			if obj == nil {
-				continue
-			}
 			newObj := newTopObjs[id]
 			if newObj == nil {
 				return wrapped{r: Patchlevel, why: fmt.Sprintf("no object %s in new version of package %s", id, pkgPath)}
