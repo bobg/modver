@@ -2,6 +2,8 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/bobg/modver.svg)](https://pkg.go.dev/github.com/bobg/modver)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bobg/modver)](https://goreportcard.com/report/github.com/bobg/modver)
+![Tests](https://github.com/bobg/modver/actions/workflows/go.yml/badge.svg)
+
 
 This is modver,
 a Go package and command that helps you obey [semantic versioning rules](https://semver.org/) in your Go module.
