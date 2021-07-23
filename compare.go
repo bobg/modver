@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go/ast"
+	"go/types"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +53,7 @@ import (
 // If you are using packages.Load
 // (see https://pkg.go.dev/golang.org/x/tools/go/packages#Load),
 // you will need at least
-//   packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo
+//   packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo
 // in your Config.Mode.
 // See CompareDirs for an example of how to call Compare with the result of packages.Load.
 func Compare(olders, newers []*packages.Package) Result {
@@ -68,9 +69,14 @@ func Compare(olders, newers []*packages.Package) Result {
 			continue
 		}
 
-		newPkg := newer[pkgPath]
-		for id, obj := range pkg.TypesInfo.Defs {
-			if !ast.IsExported(id.Name) {
+		var (
+			topObjs    = makeTopObjs(pkg)
+			newPkg     = newer[pkgPath]
+			newTopObjs map[string]types.Object
+		)
+
+		for id, obj := range topObjs {
+			if !ast.IsExported(id) {
 				continue
 			}
 			if obj == nil {
@@ -82,12 +88,15 @@ func Compare(olders, newers []*packages.Package) Result {
 			if newPkg == nil {
 				return wrapped{r: Major, why: fmt.Sprintf("no new version of package %s", pkgPath)}
 			}
-			newObj := findDef(newPkg.TypesInfo.Defs, id.Name, obj)
+			if newTopObjs == nil {
+				newTopObjs = makeTopObjs(newPkg)
+			}
+			newObj := newTopObjs[id]
 			if newObj == nil {
-				return wrapped{r: Major, why: fmt.Sprintf("no object %s in new version of package %s", id.Name, pkgPath)}
+				return wrapped{r: Major, why: fmt.Sprintf("no object %s in new version of package %s", id, pkgPath)}
 			}
 			if res := c.compareTypes(obj.Type(), newObj.Type()); res.Code() == Major {
-				return wrapped{r: res, why: fmt.Sprintf("checking %s", id.Name)}
+				return wrapped{r: res, why: fmt.Sprintf("checking %s", id)}
 			}
 		}
 	}
@@ -99,47 +108,58 @@ func Compare(olders, newers []*packages.Package) Result {
 			continue
 		}
 
-		oldPkg := older[pkgPath]
+		var (
+			topObjs    = makeTopObjs(pkg)
+			oldPkg     = older[pkgPath]
+			oldTopObjs map[string]types.Object
+		)
 
-		for id, obj := range pkg.TypesInfo.Defs {
-			if !ast.IsExported(id.Name) {
+		for id, obj := range topObjs {
+			if !ast.IsExported(id) {
 				continue
 			}
 			if obj == nil {
 				continue
 			}
-			if oldPkg == nil {
-				return wrapped{r: Minor, why: fmt.Sprintf("no old version of package %s", pkgPath)}
-			}
 			if isField(obj) {
 				continue
 			}
-			oldObj := findDef(oldPkg.TypesInfo.Defs, id.Name, obj)
+			if oldPkg == nil {
+				return wrapped{r: Minor, why: fmt.Sprintf("no old version of package %s", pkgPath)}
+			}
+			if oldTopObjs == nil {
+				oldTopObjs = makeTopObjs(oldPkg)
+			}
+			oldObj := oldTopObjs[id]
 			if oldObj == nil {
-				return wrapped{r: Minor, why: fmt.Sprintf("no object %s in old version of package %s", id.Name, pkgPath)}
+				return wrapped{r: Minor, why: fmt.Sprintf("no object %s in old version of package %s", id, pkgPath)}
 			}
 			if res := c.compareTypes(oldObj.Type(), obj.Type()); res.Code() >= Minor {
-				return wrapped{r: res.Sub(Minor), why: fmt.Sprintf("checking %s", id.Name)}
+				return wrapped{r: res.Sub(Minor), why: fmt.Sprintf("checking %s", id)}
 			}
 		}
 	}
 
 	// Finally, look for patchlevel-version changes.
 	for pkgPath, pkg := range older {
-		newPkg := newer[pkgPath]
+		var (
+			topObjs = makeTopObjs(pkg)
+			newPkg  = newer[pkgPath]
+		)
 		if newPkg == nil {
 			return wrapped{r: Patchlevel, why: fmt.Sprintf("no new version of package %s", pkgPath)}
 		}
-		for id, obj := range pkg.TypesInfo.Defs {
+		newTopObjs := makeTopObjs(newPkg)
+		for id, obj := range topObjs {
 			if obj == nil {
 				continue
 			}
-			newObj := findDef(newPkg.TypesInfo.Defs, id.Name, obj)
+			newObj := newTopObjs[id]
 			if newObj == nil {
-				return wrapped{r: Patchlevel, why: fmt.Sprintf("no object %s in new version of package %s", id.Name, pkgPath)}
+				return wrapped{r: Patchlevel, why: fmt.Sprintf("no object %s in new version of package %s", id, pkgPath)}
 			}
 			if res := c.compareTypes(obj.Type(), newObj.Type()); res.Code() != None {
-				return wrapped{r: res.Sub(Patchlevel), why: fmt.Sprintf("checking %s", id.Name)}
+				return wrapped{r: res.Sub(Patchlevel), why: fmt.Sprintf("checking %s", id)}
 			}
 		}
 	}
@@ -151,7 +171,7 @@ func Compare(olders, newers []*packages.Package) Result {
 // and calls Compare on the results.
 func CompareDirs(older, newer string) (Result, error) {
 	cfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo,
+		Mode: packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo,
 		Dir:  older,
 	}
 	olders, err := packages.Load(cfg, "./...")

@@ -21,6 +21,9 @@ func newComparer() *comparer {
 }
 
 func (c *comparer) compareTypes(older, newer types.Type) Result {
+	if c.identical(older, newer) {
+		return None
+	}
 	if olderNamed, ok := older.(*types.Named); ok {
 		if newerNamed, ok := newer.(*types.Named); ok {
 			// We already know they have the same name and package.
@@ -36,6 +39,15 @@ func (c *comparer) compareTypes(older, newer types.Type) Result {
 			return c.compareStructs(olderStruct, newerStruct)
 		}
 		return wrapped{r: Major, why: fmt.Sprintf("%s went from struct to non-struct", older)}
+	}
+	if olderIntf, ok := older.(*types.Interface); ok {
+		if newerIntf, ok := newer.(*types.Interface); ok {
+			if c.assignableTo(newerIntf, olderIntf) {
+				return wrapped{r: Minor, why: fmt.Sprintf("new interface %s is a superset of old", newer)}
+			}
+			return wrapped{r: Major, why: fmt.Sprintf("new interface %s is not assignable to old", newer)}
+		}
+		return wrapped{r: Major, why: fmt.Sprintf("%s went from interface to non-interface", older)}
 	}
 	if !c.assignableTo(newer, older) {
 		return wrapped{r: Major, why: fmt.Sprintf("%s is not assignable to %s", newer, older)}
@@ -399,6 +411,33 @@ func makePackageMap(pkgs []*packages.Package) map[string]*packages.Package {
 		result[pkg.PkgPath] = pkg
 	}
 	return result
+}
+
+func makeTopObjs(pkg *packages.Package) map[string]types.Object {
+	res := make(map[string]types.Object)
+	for _, file := range pkg.Syntax {
+		for _, decl := range file.Decls {
+			switch decl := decl.(type) {
+			case *ast.GenDecl:
+				for _, spec := range decl.Specs {
+					switch spec := spec.(type) {
+					case *ast.ValueSpec:
+						for _, name := range spec.Names {
+							res[name.Name] = pkg.TypesInfo.Defs[name]
+						}
+
+					case *ast.TypeSpec:
+						res[spec.Name.Name] = pkg.TypesInfo.Defs[spec.Name]
+					}
+				}
+
+			case *ast.FuncDecl:
+				res[decl.Name.Name] = pkg.TypesInfo.Defs[decl.Name]
+			}
+		}
+	}
+
+	return res
 }
 
 func structMap(t *types.Struct) map[string]*types.Var {
