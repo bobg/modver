@@ -59,8 +59,18 @@ func TestGit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	gitDir := filepath.Join(pwd, ".git")
+	_, err = os.Stat(gitDir)
+	if os.IsNotExist(err) {
+		t.Skip()
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	const sha = "9a72a6127e397434ab4e4eb34673ff08f143b609"
-	res, err := CompareGit(context.Background(), filepath.Join(pwd, ".git"), sha, sha)
+	res, err := CompareGit(context.Background(), gitDir, sha, sha)
 	if err != nil {
 		t.Fatal(err)
 	}
