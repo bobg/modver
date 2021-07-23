@@ -5,8 +5,10 @@ import "fmt"
 // Result is the result of Compare.
 type Result interface {
 	Code() ResultCode
-	Sub(code ResultCode) Result
 	String() string
+
+	wrap(string) Result
+	sub(code ResultCode) Result
 }
 
 // ResultCode is the required version-bump level as detected by Compare.
@@ -20,7 +22,8 @@ const (
 )
 
 func (r ResultCode) Code() ResultCode           { return r }
-func (r ResultCode) Sub(code ResultCode) Result { return code }
+func (r ResultCode) sub(code ResultCode) Result { return code }
+func (r ResultCode) wrap(why string) Result     { return wrapped{r: r, why: why} }
 
 func (r ResultCode) String() string {
 	switch r {
@@ -43,8 +46,11 @@ type wrapped struct {
 }
 
 func (w wrapped) Code() ResultCode           { return w.r.Code() }
-func (w wrapped) Sub(code ResultCode) Result { return wrapped{r: w.r.Sub(code), why: w.why} }
+func (w wrapped) sub(code ResultCode) Result { return wrapped{r: w.r.sub(code), why: w.why} }
+func (w wrapped) wrap(why string) Result {
+	return wrapped{r: w.Code(), why: fmt.Sprintf("%s: %s", why, w.why)}
+}
 
 func (w wrapped) String() string {
-	return fmt.Sprintf("%s: %s", w.why, w.r)
+	return fmt.Sprintf("%s: %s", w.r, w.why)
 }

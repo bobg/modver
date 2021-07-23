@@ -32,25 +32,25 @@ func (c *comparer) compareTypes(older, newer types.Type) Result {
 		// This is probably impossible.
 		// How can newer not be *types.Named if older is,
 		// and newer has the same name?
-		return wrapped{r: Major, why: fmt.Sprintf("%s went from defined type to non-defined type", older)}
+		return Major.wrap(fmt.Sprintf("%s went from defined type to non-defined type", older))
 	}
 	if olderStruct, ok := older.(*types.Struct); ok {
 		if newerStruct, ok := newer.(*types.Struct); ok {
 			return c.compareStructs(olderStruct, newerStruct)
 		}
-		return wrapped{r: Major, why: fmt.Sprintf("%s went from struct to non-struct", older)}
+		return Major.wrap(fmt.Sprintf("%s went from struct to non-struct", older))
 	}
 	if olderIntf, ok := older.(*types.Interface); ok {
 		if newerIntf, ok := newer.(*types.Interface); ok {
 			if c.assignableTo(newerIntf, olderIntf) {
-				return wrapped{r: Minor, why: fmt.Sprintf("new interface %s is a superset of old", newer)}
+				return Minor.wrap(fmt.Sprintf("new interface %s is a superset of old", newer))
 			}
-			return wrapped{r: Major, why: fmt.Sprintf("new interface %s is not assignable to old", newer)}
+			return Major.wrap(fmt.Sprintf("new interface %s is not assignable to old", newer))
 		}
-		return wrapped{r: Major, why: fmt.Sprintf("%s went from interface to non-interface", older)}
+		return Major.wrap(fmt.Sprintf("%s went from interface to non-interface", older))
 	}
 	if !c.assignableTo(newer, older) {
-		return wrapped{r: Major, why: fmt.Sprintf("%s is not assignable to %s", newer, older)}
+		return Major.wrap(fmt.Sprintf("%s is not assignable to %s", newer, older))
 	}
 	return None
 }
@@ -64,10 +64,10 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 	for name, field := range olderMap {
 		newerField, ok := newerMap[name]
 		if !ok {
-			return wrapped{r: Major, why: fmt.Sprintf("old struct field %s was removed from %s", name, older)}
+			return Major.wrap(fmt.Sprintf("old struct field %s was removed from %s", name, older))
 		}
 		if !c.identical(field.Type(), newerField.Type()) {
-			return wrapped{r: Major, why: fmt.Sprintf("struct field %s changed in %s", name, older)}
+			return Major.wrap(fmt.Sprintf("struct field %s changed in %s", name, older))
 		}
 		// xxx what about field tags? Parse them for major vs minor changes?
 	}
@@ -75,12 +75,12 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 	for name := range newerMap {
 		_, ok := olderMap[name]
 		if !ok {
-			return wrapped{r: Minor, why: fmt.Sprintf("struct field %s was added to %s", name, newer)}
+			return Minor.wrap(fmt.Sprintf("struct field %s was added to %s", name, newer))
 		}
 	}
 
 	if !c.identical(older, newer) {
-		return wrapped{r: Patchlevel, why: fmt.Sprintf("old and new versions of %s are not identical", older)}
+		return Patchlevel.wrap(fmt.Sprintf("old and new versions of %s are not identical", older))
 	}
 
 	return None
