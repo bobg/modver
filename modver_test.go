@@ -69,8 +69,7 @@ func TestGit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const sha = "9a72a6127e397434ab4e4eb34673ff08f143b609"
-	res, err := CompareGit(context.Background(), gitDir, sha, sha)
+	res, err := CompareGit(context.Background(), gitDir, "HEAD", "HEAD")
 	if err != nil {
 		t.Fatal(err)
 	}
