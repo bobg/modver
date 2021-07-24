@@ -148,7 +148,8 @@ func (c *comparer) assignableTo(v, t types.Type) bool {
 		return true
 	}
 
-	// "x's type V and T have identical underlying types and at least one of V or T is not a defined type"
+	// "x's type V and T have identical underlying types
+	// and at least one of V or T is not a defined type"
 	uv, ut := v.Underlying(), t.Underlying()
 	if c.identical(uv, ut) {
 		if _, ok := v.(*types.Named); !ok {
@@ -166,7 +167,10 @@ func (c *comparer) assignableTo(v, t types.Type) bool {
 		}
 	}
 
-	// "x is a bidirectional channel value, T is a channel type, x's type V and T have identical element types, and at least one of V or T is not a defined type"
+	// "x is a bidirectional channel value,
+	// T is a channel type,
+	// x's type V and T have identical element types,
+	// and at least one of V or T is not a defined type"
 	if chv, ok := uv.(*types.Chan); ok && chv.Dir() == types.SendRecv {
 		if cht, ok := ut.(*types.Chan); ok && c.identical(chv.Elem(), cht.Elem()) {
 			if _, ok := v.(*types.Named); !ok {
@@ -179,8 +183,9 @@ func (c *comparer) assignableTo(v, t types.Type) bool {
 	}
 
 	if b, ok := v.(*types.Basic); ok {
-		// "x is the predeclared identifier nil and T is a pointer, function, slice, map, channel, or interface type"
-		if b.Kind() == types.UntypedNil { // xxx ?
+		// "x is the predeclared identifier nil
+		// and T is a pointer, function, slice, map, channel, or interface type"
+		if b.Kind() == types.UntypedNil {
 			switch ut.(type) {
 			case *types.Pointer:
 				return true
@@ -437,7 +442,7 @@ func (c *comparer) samePackage(a, b *types.Package) bool {
 // https://golang.org/ref/spec#Representability
 // TODO: Add range checking of literals.
 func representable(x *types.Basic, t types.Type) bool {
-	tb, ok := t.(*types.Basic) // xxx use t.Underlying() here?
+	tb, ok := t.Underlying().(*types.Basic)
 	if !ok {
 		return false
 	}
