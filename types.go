@@ -49,6 +49,15 @@ func (c *comparer) compareTypes(older, newer types.Type) Result {
 		}
 		return Major.wrap(fmt.Sprintf("%s went from interface to non-interface", older))
 	}
+	if olderSig, ok := older.(*types.Signature); ok {
+		if newerSig, ok := newer.(*types.Signature); ok {
+			if _, added := c.identicalSigs(olderSig, newerSig); added {
+				return Minor.wrap(fmt.Sprintf("%s adds optional parameters", newer))
+			}
+		} else {
+			return Major.wrap(fmt.Sprintf("%s went from function to non-function", older))
+		}
+	}
 	if !c.assignableTo(newer, older) {
 		return Major.wrap(fmt.Sprintf("%s is not assignable to %s", newer, older))
 	}
@@ -259,16 +268,8 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 	case *types.Signature:
 		// Two function types are identical if they have the same number of parameters and result values, corresponding parameter and result types are identical, and either both functions are variadic or neither is. Parameter and result names are not required to match.
 		if ub, ok := ub.(*types.Signature); ok {
-			if ua.Variadic() != ub.Variadic() {
-				return false
-			}
-			if !c.tupleTypesIdentical(ua.Params(), ub.Params()) {
-				return false
-			}
-			if !c.tupleTypesIdentical(ua.Results(), ub.Results()) {
-				return false
-			}
-			return true
+			identical, _ := c.identicalSigs(ua, ub)
+			return identical
 		}
 		return false
 
@@ -320,6 +321,26 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 	return false
 }
 
+func (c *comparer) identicalSigs(older, newer *types.Signature) (identical, addedOptionalParams bool) {
+	identical, addedOptionalParams = true, true
+	if older.Variadic() {
+		if !newer.Variadic() {
+			return false, false
+		}
+		addedOptionalParams = false
+	} else if newer.Variadic() {
+		identical = false
+	}
+
+	resultsIdentical, _ := c.identicalTuples(older.Results(), newer.Results())
+	if !resultsIdentical {
+		return false, false
+	}
+
+	paramsIdentical, addedParam := c.identicalTuples(older.Params(), newer.Params())
+	return identical && paramsIdentical, addedOptionalParams && addedParam
+}
+
 // https://golang.org/ref/spec#Method_sets
 func (c *comparer) implements(v types.Type, t *types.Interface) bool {
 	if types.Implements(v, t) {
@@ -340,17 +361,22 @@ func (c *comparer) implements(v types.Type, t *types.Interface) bool {
 	return true
 }
 
-func (c *comparer) tupleTypesIdentical(a, b *types.Tuple) bool {
-	if a.Len() != b.Len() {
-		return false
+func (c *comparer) identicalTuples(a, b *types.Tuple) (identical, added1 bool) {
+	identical, added1 = true, true
+	la, lb := a.Len(), b.Len()
+	if la != lb {
+		if la+1 != lb {
+			return false, false
+		}
+		identical = false
 	}
-	for i := 0; i < a.Len(); i++ {
+	for i := 0; i < la; i++ {
 		va, vb := a.At(i), b.At(i)
 		if !c.identical(va.Type(), vb.Type()) {
-			return false
+			return false, false
 		}
 	}
-	return true
+	return identical, added1
 }
 
 func (c *comparer) samePackage(a, b *types.Package) bool {
