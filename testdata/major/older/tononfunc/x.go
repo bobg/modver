@@ -1,0 +1,3 @@
+package tononfunc
+
+func X() {}

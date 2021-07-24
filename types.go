@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
+	"regexp"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -70,21 +71,37 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 		newerMap = structMap(newer)
 	)
 
-	for name, field := range olderMap {
-		newerField, ok := newerMap[name]
+	for i := 0; i < older.NumFields(); i++ {
+		field := older.Field(i)
+		newFieldIndex, ok := newerMap[field.Name()]
 		if !ok {
-			return Major.wrap(fmt.Sprintf("old struct field %s was removed from %s", name, older))
+			return Major.wrap(fmt.Sprintf("old struct field %s was removed from %s", field.Name(), older))
 		}
-		if !c.identical(field.Type(), newerField.Type()) {
-			return Major.wrap(fmt.Sprintf("struct field %s changed in %s", name, older))
+		newField := newer.Field(newFieldIndex)
+		if !c.identical(field.Type(), newField.Type()) {
+			return Major.wrap(fmt.Sprintf("struct field %s changed in %s", field.Name(), older))
 		}
-		// xxx what about field tags? Parse them for major vs minor changes?
+		var (
+			tag    = older.Tag(i)
+			newTag = newer.Tag(newFieldIndex)
+		)
+		if res := c.compareStructTags(tag, newTag); res.Code() == Major {
+			return res.wrap(fmt.Sprintf("tag change in field %s of %s", field.Name(), older))
+		}
 	}
 
-	for name := range newerMap {
-		_, ok := olderMap[name]
+	for i := 0; i < newer.NumFields(); i++ {
+		field := newer.Field(i)
+		oldFieldIndex, ok := olderMap[field.Name()]
 		if !ok {
-			return Minor.wrap(fmt.Sprintf("struct field %s was added to %s", name, newer))
+			return Minor.wrap(fmt.Sprintf("struct field %s was added to %s", field.Name(), newer))
+		}
+		var (
+			oldTag = older.Tag(oldFieldIndex)
+			tag    = newer.Tag(i)
+		)
+		if res := c.compareStructTags(oldTag, tag); res.Code() == Minor {
+			return res.wrap(fmt.Sprintf("tag change in field %s of %s", field.Name(), older))
 		}
 	}
 
@@ -92,6 +109,31 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 		return Patchlevel.wrap(fmt.Sprintf("old and new versions of %s are not identical", older))
 	}
 
+	return None
+}
+
+func (c *comparer) compareStructTags(a, b string) Result {
+	if a == b {
+		return None
+	}
+	var (
+		amap = tagMap(a)
+		bmap = tagMap(b)
+	)
+	for k, av := range amap {
+		if bv, ok := bmap[k]; ok {
+			if av != bv {
+				return Major.wrap(fmt.Sprintf(`struct tag changed the value for key "%s" from "%s" to "%s"`, k, av, bv))
+			}
+		} else {
+			return Major.wrap(fmt.Sprintf("struct tag %s was removed", k))
+		}
+	}
+	for k := range bmap {
+		if _, ok := amap[k]; !ok {
+			return Minor.wrap(fmt.Sprintf("struct tag %s was added", k))
+		}
+	}
 	return None
 }
 
@@ -232,7 +274,11 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 		return false
 
 	case *types.Struct:
-		// Two struct types are identical if they have the same sequence of fields, and if corresponding fields have the same names, and identical types, and identical tags. Non-exported field names from different packages are always different.
+		// Two struct types are identical if they have the same sequence of fields,
+		// and if corresponding fields have the same names,
+		// and identical types,
+		// and identical tags.
+		// Non-exported field names from different packages are always different.
 		if ub, ok := ub.(*types.Struct); ok {
 			if ua.NumFields() != ub.NumFields() {
 				return false
@@ -266,7 +312,10 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 		return false
 
 	case *types.Signature:
-		// Two function types are identical if they have the same number of parameters and result values, corresponding parameter and result types are identical, and either both functions are variadic or neither is. Parameter and result names are not required to match.
+		// Two function types are identical if they have the same number of parameters and result values,
+		// corresponding parameter and result types are identical,
+		// and either both functions are variadic or neither is.
+		// Parameter and result names are not required to match.
 		if ub, ok := ub.(*types.Signature); ok {
 			identical, _ := c.identicalSigs(ua, ub)
 			return identical
@@ -274,9 +323,11 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 		return false
 
 	case *types.Interface:
-		// Two interface types are identical if they have the same set of methods with the same names and identical function types. Non-exported method names from different packages are always different. The order of the methods is irrelevant.
+		// Two interface types are identical if they have the same set of methods with the same names and identical function types.
+		// Non-exported method names from different packages are always different.
+		// The order of the methods is irrelevant.
 		if ub, ok := ub.(*types.Interface); ok {
-			if ua.NumMethods() != ub.NumMethods() { // xxx panics on incomplete interfaces
+			if ua.NumMethods() != ub.NumMethods() { // Warning: this panics on incomplete interfaces.
 				return false
 			}
 
@@ -384,7 +435,7 @@ func (c *comparer) samePackage(a, b *types.Package) bool {
 }
 
 // https://golang.org/ref/spec#Representability
-// xxx no range checking of literals here
+// TODO: Add range checking of literals.
 func representable(x *types.Basic, t types.Type) bool {
 	tb, ok := t.(*types.Basic) // xxx use t.Underlying() here?
 	if !ok {
@@ -466,11 +517,22 @@ func makeTopObjs(pkg *packages.Package) map[string]types.Object {
 	return res
 }
 
-func structMap(t *types.Struct) map[string]*types.Var {
-	result := make(map[string]*types.Var)
+func structMap(t *types.Struct) map[string]int {
+	result := make(map[string]int)
 	for i := 0; i < t.NumFields(); i++ {
 		f := t.Field(i)
-		result[f.Name()] = f
+		result[f.Name()] = i
 	}
 	return result
+}
+
+var tagRE = regexp.MustCompile(`([^ ":[:cntrl:]]+):"(([^"]|\\")*)"`)
+
+func tagMap(inp string) map[string]string {
+	res := make(map[string]string)
+	matches := tagRE.FindAllStringSubmatch(inp, -1)
+	for _, match := range matches {
+		res[match[1]] = match[2]
+	}
+	return res
 }

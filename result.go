@@ -14,6 +14,7 @@ type Result interface {
 // ResultCode is the required version-bump level as detected by Compare.
 type ResultCode int
 
+// Values for ResultCode.
 const (
 	None ResultCode = iota
 	Patchlevel
@@ -21,10 +22,12 @@ const (
 	Major
 )
 
+// Code implements Result.Code.
 func (r ResultCode) Code() ResultCode           { return r }
 func (r ResultCode) sub(code ResultCode) Result { return code }
 func (r ResultCode) wrap(why string) Result     { return wrapped{r: r, why: why} }
 
+// String implements Result.String.
 func (r ResultCode) String() string {
 	switch r {
 	case None:
@@ -45,12 +48,14 @@ type wrapped struct {
 	why string
 }
 
+// Code implements Result.Code.
 func (w wrapped) Code() ResultCode           { return w.r.Code() }
 func (w wrapped) sub(code ResultCode) Result { return wrapped{r: w.r.sub(code), why: w.why} }
 func (w wrapped) wrap(why string) Result {
 	return wrapped{r: w.Code(), why: fmt.Sprintf("%s: %s", why, w.why)}
 }
 
+// String implements Result.String.
 func (w wrapped) String() string {
 	return fmt.Sprintf("%s: %s", w.r, w.why)
 }
