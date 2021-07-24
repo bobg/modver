@@ -17,7 +17,8 @@
 // With -v1 and -v2,
 // modver checks whether the change from OLDERVERSION to NEWERVERSION
 // (two version strings) is adequate for the differences detected between OLDER and NEWER.
-// Output is either "OK" or "ERR".
+// Output is either "OK" or "ERR"
+// (followed by a description).
 // In quiet mode (-q),
 // there is no output,
 // and the exit status is either 0 (OK) or 1 (error).
@@ -132,7 +133,7 @@ func main() {
 		if ok {
 			fmt.Println("OK")
 		} else {
-			fmt.Println("ERR")
+			fmt.Printf("ERR %s\n", res)
 		}
 	} else if *quiet {
 		os.Exit(int(res.Code()))
