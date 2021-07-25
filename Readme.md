@@ -44,3 +44,20 @@ a minor-version bump won't suffice,
 and if this function returns `Minor`,
 a patchlevel bump won't suffice,
 etc.
+
+The `modver` command
+(in the `cmd/modver` subdirectory)
+can be used,
+among other ways,
+to test that each commit to a Git repository increments the module’s version number appropriately.
+This is done for modver itself using GitHub Actions,
+[here](https://github.com/bobg/modver/blob/dd93eccb5674b13161a91bf6a6666889c21adb5b/.github/workflows/go.yml#L25-L26).
+
+(Note that the standard `actions/checkout@v2` action,
+for cloning a repository during GitHub Actions,
+creates a shallow clone with just one commit’s worth of history.
+For the usage here to work,
+you’ll need more history:
+at least two commit’s worth and maybe more to pull in the latest tag for the previous revision.
+The clone depth can be overridden with the `fetch-depth` parameter,
+which modver does [here](https://github.com/bobg/modver/blob/dd93eccb5674b13161a91bf6a6666889c21adb5b/.github/workflows/go.yml#L14-L15).)
