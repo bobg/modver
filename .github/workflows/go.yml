@@ -17,5 +17,8 @@ jobs:
       with:
         go-version: 1.16
 
-    - name: Test
+    - name: Unit tests
       run: go test -v ./...
+
+    - name: Version string check
+      run: go run ./cmd/modver -git `pwd`/.git -versions HEAD~1 HEAD
