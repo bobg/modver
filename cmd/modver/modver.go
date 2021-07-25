@@ -4,7 +4,8 @@
 // is needed to go from one to the other.
 //
 // Usage:
-//   modver [-git REPO] [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDER NEWER
+//   modver -git REPO [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
+//   modver [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR
 //
 // With `-git REPO`,
 // where REPO is the path to a Git repository,
@@ -16,14 +17,18 @@
 //
 // With -v1 and -v2,
 // modver checks whether the change from OLDERVERSION to NEWERVERSION
-// (two version strings) is adequate for the differences detected between OLDER and NEWER.
+// (two version strings)
+// is adequate for the differences detected between OLDER and NEWER.
 // Output is either "OK" or "ERR"
-// (followed by a description).
+// (followed by a description)
+// and the exit code is 0 for OK and 1 for ERR.
 // In quiet mode (-q),
-// there is no output,
-// and the exit status is either 0 (OK) or 1 (error).
+// there is no output.
+// With -git REPO and -versions instead of -v1 and -v2,
+// the values for -v1 and -v2 are determined by querying the repo at the given revisions.
 //
-// Without -v1 and -v2,
+// Without -v1 and -v2
+// (or -versions),
 // output is a string describing the minimum version-number change required.
 // In quiet mode (-q),
 // there is no output,
