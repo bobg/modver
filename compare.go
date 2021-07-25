@@ -196,7 +196,20 @@ func (p errpkg) Error() string {
 }
 
 // CompareGit compares the Go packages in two revisions of a Git repo at the given URL.
-func CompareGit(ctx context.Context, repoURL, olderSHA, newerSHA string) (Result, error) {
+func CompareGit(ctx context.Context, repoURL, olderRev, newerRev string) (Result, error) {
+	return CompareGitWith(ctx, repoURL, olderRev, newerRev, CompareDirs)
+}
+
+// CompareGitWith compares the Go packages in two revisions of a Git repo at the given URL.
+// It uses the given callback function to perform the comparison.
+//
+// The callback function receives the paths to two directories,
+// containing two clones of the repo:
+// one checked out at the older revision
+// and one checked out at the newer revision.
+//
+// Note that CompareGit(...) is simply CompareGitWith(..., CompareDirs).
+func CompareGitWith(ctx context.Context, repoURL, olderRev, newerRev string, f func(older, newer string) (Result, error)) (Result, error) {
 	parent, err := os.MkdirTemp("", "modver")
 	if err != nil {
 		return None, fmt.Errorf("creating tmpdir: %w", err)
@@ -204,21 +217,21 @@ func CompareGit(ctx context.Context, repoURL, olderSHA, newerSHA string) (Result
 	defer os.RemoveAll(parent)
 
 	olderDir := filepath.Join(parent, "older")
-	err = gitSetup(ctx, repoURL, olderDir, olderSHA)
+	err = gitSetup(ctx, repoURL, olderDir, olderRev)
 	if err != nil {
 		return None, fmt.Errorf("setting up older clone: %w", err)
 	}
 
 	newerDir := filepath.Join(parent, "newer")
-	err = gitSetup(ctx, repoURL, newerDir, newerSHA)
+	err = gitSetup(ctx, repoURL, newerDir, newerRev)
 	if err != nil {
 		return None, fmt.Errorf("setting up newer clone: %w", err)
 	}
 
-	return CompareDirs(olderDir, newerDir)
+	return f(olderDir, newerDir)
 }
 
-func gitSetup(ctx context.Context, repoURL, dir, sha string) error {
+func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 	err := os.Mkdir(dir, 0755)
 	if err != nil {
 		return fmt.Errorf("creating %s: %w", dir, err)
@@ -232,9 +245,13 @@ func gitSetup(ctx context.Context, repoURL, dir, sha string) error {
 	if err != nil {
 		return fmt.Errorf("getting worktree from %s: %w", dir, err)
 	}
-	err = worktree.Checkout(&git.CheckoutOptions{Hash: plumbing.NewHash(sha)})
+	hash, err := repo.ResolveRevision(plumbing.Revision(rev))
 	if err != nil {
-		return fmt.Errorf("checking out %s in %s: %w", sha, dir, err)
+		return fmt.Errorf(`resolving revision "%s": %w`, rev, err)
+	}
+	err = worktree.Checkout(&git.CheckoutOptions{Hash: *hash})
+	if err != nil {
+		return fmt.Errorf(`checking out "%s" in %s: %w`, rev, dir, err)
 	}
 	return nil
 }
