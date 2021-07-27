@@ -153,7 +153,7 @@ func main() {
 		}
 		if !*quiet {
 			if *versions {
-				fmt.Printf("OK using versions %s and %s: %s\n", *v1, *v2, res)
+				fmt.Printf("ERR using versions %s and %s: %s\n", *v1, *v2, res)
 			} else {
 				fmt.Printf("ERR %s\n", res)
 			}
@@ -221,12 +221,14 @@ OUTER:
 		}
 		tagCommit, err := object.GetCommit(repo.Storer, tref.Hash())
 		if err != nil {
-			return "", fmt.Errorf("getting commit for tag %s: %w", tref.Name(), err)
+			fmt.Fprintf(os.Stderr, "Warning: getting commit for tag %s: %s", tref.Name(), err)
+			continue
 		}
 		if tagCommit.Hash != *hash {
 			bases, err := repoCommit.MergeBase(tagCommit)
 			if err != nil {
-				return "", fmt.Errorf("getting merge base of %s and %s: %w", rev, tag, err)
+				fmt.Fprintf(os.Stderr, "Warning: getting merge base of %s and %s: %s", rev, tag, err)
+				continue
 			}
 		INNER:
 			for _, base := range bases {
