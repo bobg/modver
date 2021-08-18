@@ -28,7 +28,7 @@ but callers depending on the new features cannot use the old version.
 A patchlevel bump is needed for most other changes.
 
 The result produced by modver is the _minimal_ change required.
-The acquire change required may be greater.
+The actual change required may be greater.
 For example,
 if a new method is added to a type,
 this function will return `Minor`.
