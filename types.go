@@ -262,6 +262,10 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 		return true
 	}
 
+	return c.underlyingIdentical(ua, ub)
+}
+
+func (c *comparer) underlyingIdentical(ua, ub types.Type) bool {
 	switch ua := ua.(type) {
 
 	case *types.Array:
@@ -279,35 +283,7 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 		return false
 
 	case *types.Struct:
-		// Two struct types are identical if they have the same sequence of fields,
-		// and if corresponding fields have the same names,
-		// and identical types,
-		// and identical tags.
-		// Non-exported field names from different packages are always different.
-		if ub, ok := ub.(*types.Struct); ok {
-			if ua.NumFields() != ub.NumFields() {
-				return false
-			}
-			for i := 0; i < ua.NumFields(); i++ {
-				if ua.Tag(i) != ub.Tag(i) {
-					return false
-				}
-
-				fa, fb := ua.Field(i), ub.Field(i)
-
-				if fa.Name() != fb.Name() {
-					return false
-				}
-				if !fa.Exported() && !c.samePackage(fa.Pkg(), fb.Pkg()) {
-					return false
-				}
-				if !c.identical(fa.Type(), fb.Type()) {
-					return false
-				}
-			}
-			return true
-		}
-		return false
+		return c.identicalStructs(ua, ub)
 
 	case *types.Pointer:
 		// Two pointer types are identical if they have identical base types.
@@ -375,6 +351,41 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 	}
 
 	return false
+}
+
+func (c *comparer) identicalStructs(ua *types.Struct, b types.Type) bool {
+	ub, ok := b.(*types.Struct)
+	if !ok {
+		return false
+	}
+
+	// Two struct types are identical if they have the same sequence of fields,
+	// and if corresponding fields have the same names,
+	// and identical types,
+	// and identical tags.
+	// Non-exported field names from different packages are always different.
+
+	if ua.NumFields() != ub.NumFields() {
+		return false
+	}
+	for i := 0; i < ua.NumFields(); i++ {
+		if ua.Tag(i) != ub.Tag(i) {
+			return false
+		}
+
+		fa, fb := ua.Field(i), ub.Field(i)
+
+		if fa.Name() != fb.Name() {
+			return false
+		}
+		if !fa.Exported() && !c.samePackage(fa.Pkg(), fb.Pkg()) {
+			return false
+		}
+		if !c.identical(fa.Type(), fb.Type()) {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *comparer) identicalSigs(older, newer *types.Signature) (identical, addedOptionalParams bool) {
