@@ -50,6 +50,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 
 	"github.com/bobg/modver"
 )
@@ -57,68 +58,72 @@ import (
 const errorStatus = 4
 
 func main() {
-	var (
-		gitRepo  = flag.String("git", "", "Git repo URL")
-		quiet    = flag.Bool("q", false, "quiet mode: prints no output, exits with status 0, 1, 2, 3, or 4 to mean None, Patchlevel, Minor, Major, or error")
-		v1       = flag.String("v1", "", "version string of older version; with -v2 changes output to OK (exit status 0) for adequate version-number change, ERR (exit status 1) for inadequate")
-		v2       = flag.String("v2", "", "version string of newer version")
-		versions = flag.Bool("versions", false, "with -git, compute values for -v1 and -v2 from the Git repository")
-	)
+	gitRepo, quiet, v1, v2, versions, err := parseArgs()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing args: %s\n", err)
+		os.Exit(errorStatus)
+	}
+
+	res, err := doCompare(gitRepo, v1, v2, versions)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error in comparing: %s\n", err)
+		os.Exit(errorStatus)
+	}
+
+	doShowResultExit(res, quiet, v1, v2, versions)
+}
+
+func parseArgs() (gitRepo string, quiet bool, v1, v2 string, versions bool, err error) {
+	flag.StringVar(&gitRepo, "git", "", "Git repo URL")
+	flag.BoolVar(&quiet, "q", false, "quiet mode: prints no output, exits with status 0, 1, 2, 3, or 4 to mean None, Patchlevel, Minor, Major, or error")
+	flag.StringVar(&v1, "v1", "", "version string of older version; with -v2 changes output to OK (exit status 0) for adequate version-number change, ERR (exit status 1) for inadequate")
+	flag.StringVar(&v2, "v2", "", "version string of newer version")
+	flag.BoolVar(&versions, "versions", false, "with -git, compute values for -v1 and -v2 from the Git repository")
 	flag.Parse()
 
-	if *v1 != "" && *v2 != "" {
-		if !strings.HasPrefix(*v1, "v") {
-			*v1 = "v" + *v1
+	if v1 != "" && v2 != "" {
+		if !strings.HasPrefix(v1, "v") {
+			v1 = "v" + v1
 		}
-		if !strings.HasPrefix(*v2, "v") {
-			*v2 = "v" + *v2
+		if !strings.HasPrefix(v2, "v") {
+			v2 = "v" + v2
 		}
-		if !semver.IsValid(*v1) {
-			fmt.Printf("Not a valid version string: %s\n", *v1)
-			os.Exit(errorStatus)
+		if !semver.IsValid(v1) {
+			err = fmt.Errorf("not a valid version string: %s", v1)
+			return
 		}
-		if !semver.IsValid(*v2) {
-			fmt.Printf("Not a valid version string: %s\n", *v2)
-			os.Exit(errorStatus)
+		if !semver.IsValid(v2) {
+			err = fmt.Errorf("not a valid version string: %s", v2)
+			return
 		}
 	}
 
-	var (
-		res modver.Result
-		err error
-	)
+	return
+}
 
-	if *gitRepo != "" {
+func doCompare(gitRepo, v1, v2 string, versions bool) (modver.Result, error) {
+	if gitRepo != "" {
 		if flag.NArg() != 2 {
-			fmt.Printf("Usage: %s -git [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV\n", os.Args[0])
-			os.Exit(errorStatus)
+			return nil, fmt.Errorf("usage: %s -git [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV", os.Args[0])
 		}
 
 		callback := modver.CompareDirs
-		if *versions {
-			callback = getTags(v1, v2, flag.Arg(0), flag.Arg(1))
+		if versions {
+			callback = getTags(&v1, &v2, flag.Arg(0), flag.Arg(1))
 		}
-		res, err = modver.CompareGitWith(context.Background(), *gitRepo, flag.Arg(0), flag.Arg(1), callback)
-		if err != nil {
-			fmt.Printf("Error: %s\n", err)
-			os.Exit(errorStatus)
-		}
-	} else {
-		if flag.NArg() != 2 {
-			fmt.Printf("Usage: %s [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR\n", os.Args[0])
-			os.Exit(errorStatus)
-		}
-		res, err = modver.CompareDirs(flag.Arg(0), flag.Arg(1))
-		if err != nil {
-			fmt.Printf("Error: %s\n", err)
-			os.Exit(errorStatus)
-		}
+		return modver.CompareGitWith(context.Background(), gitRepo, flag.Arg(0), flag.Arg(1), callback)
 	}
+	if flag.NArg() != 2 {
+		return nil, fmt.Errorf("usage: %s [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR", os.Args[0])
+	}
+	return modver.CompareDirs(flag.Arg(0), flag.Arg(1))
+}
 
-	if *v1 != "" && *v2 != "" {
+func doShowResultExit(res modver.Result, quiet bool, v1, v2 string, versions bool) {
+	if v1 != "" && v2 != "" {
 		var ok bool
 
-		cmp := semver.Compare(*v1, *v2)
+		cmp := semver.Compare(v1, v2)
 		switch res.Code() {
 		case modver.None:
 			ok = cmp <= 0 // v1 <= v2
@@ -128,32 +133,32 @@ func main() {
 
 		case modver.Minor:
 			var (
-				min1 = semver.MajorMinor(*v1)
-				min2 = semver.MajorMinor(*v2)
+				min1 = semver.MajorMinor(v1)
+				min2 = semver.MajorMinor(v2)
 			)
 			ok = semver.Compare(min1, min2) < 0 // min1 < min2
 
 		case modver.Major:
 			var (
-				maj1 = semver.Major(*v1)
-				maj2 = semver.Major(*v2)
+				maj1 = semver.Major(v1)
+				maj2 = semver.Major(v2)
 			)
 			ok = semver.Compare(maj1, maj2) < 0 // maj1 < maj2
 		}
 
 		if ok {
-			if !*quiet {
-				if *versions {
-					fmt.Printf("OK using versions %s and %s: %s\n", *v1, *v2, res)
+			if !quiet {
+				if versions {
+					fmt.Printf("OK using versions %s and %s: %s\n", v1, v2, res)
 				} else {
 					fmt.Printf("OK %s\n", res)
 				}
 			}
 			os.Exit(0)
 		}
-		if !*quiet {
-			if *versions {
-				fmt.Printf("ERR using versions %s and %s: %s\n", *v1, *v2, res)
+		if !quiet {
+			if versions {
+				fmt.Printf("ERR using versions %s and %s: %s\n", v1, v2, res)
 			} else {
 				fmt.Printf("ERR %s\n", res)
 			}
@@ -161,7 +166,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *quiet {
+	if quiet {
 		os.Exit(int(res.Code()))
 	}
 
@@ -204,6 +209,10 @@ func getTag(dir, rev string) (string, error) {
 		return "", fmt.Errorf("getting commit at %s: %w", rev, err)
 	}
 
+	return getTagHelper(dir, rev, repo.Storer, tags, hash, repoCommit)
+}
+
+func getTagHelper(dir, rev string, s storer.EncodedObjectStorer, tags storer.ReferenceIter, hash *plumbing.Hash, repoCommit *object.Commit) (string, error) {
 	var result string
 
 OUTER:
@@ -219,7 +228,7 @@ OUTER:
 		if !semver.IsValid(tag) {
 			continue
 		}
-		tagCommit, err := object.GetCommit(repo.Storer, tref.Hash())
+		tagCommit, err := object.GetCommit(s, tref.Hash())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: getting commit for tag %s: %s", tref.Name(), err)
 			continue
