@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/bobg/modver.svg)](https://pkg.go.dev/github.com/bobg/modver)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bobg/modver)](https://goreportcard.com/report/github.com/bobg/modver)
-![Tests](https://github.com/bobg/modver/actions/workflows/go.yml/badge.svg)
+[![Tests](https://github.com/bobg/modver/actions/workflows/go.yml/badge.svg)](https://github.com/bobg/modver/actions/workflows/go.yml)
 [![Coverage Status](https://coveralls.io/repos/github/bobg/modver/badge.svg?branch=master)](https://coveralls.io/github/bobg/modver?branch=master)
 
 This is modver,
@@ -14,6 +14,32 @@ or two different Git commits.
 It then reports whether the changes require an increase in the major-version number,
 the minor-version number,
 or the patchlevel.
+
+## Installation and usage
+
+Install the `modver` command using Go 1.16 or later like this:
+
+```sh
+go install github.com/bobg/modver/cmd/modver@latest
+```
+
+Assuming the current directory is the root of a cloned Git repository,
+you can run it like this:
+
+```sh
+$ modver -git .git HEAD~1 HEAD
+```
+
+to tell what kind of version-number change is needed for the latest commit.
+The `-git .git` gives the path to the repository’s info;
+it can also be something like `https://github.com/bobg/modver`.
+The arguments `HEAD~1` and `HEAD` specify two Git revisions to compare;
+in this case, the latest two commits on the current branch.
+These could also be tags or commit hashes.
+
+Modver also has a simple API for use from within Go programs.
+
+## Semantic versioning
 
 Briefly, a major-version bump is needed for incompatible changes in the public API,
 such as when a type is removed or renamed,
