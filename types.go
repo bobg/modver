@@ -167,6 +167,14 @@ func (c *comparer) assignableTo(v, t types.Type) bool {
 		}
 	}
 
+	if c.assignableChan(v, t, uv, ut) {
+		return true
+	}
+
+	return c.assignableBasic(v, t, uv, ut)
+}
+
+func (c *comparer) assignableChan(v, t, uv, ut types.Type) bool {
 	// "x is a bidirectional channel value,
 	// T is a channel type,
 	// x's type V and T have identical element types,
@@ -181,34 +189,38 @@ func (c *comparer) assignableTo(v, t types.Type) bool {
 			}
 		}
 	}
+	return false
+}
 
-	if b, ok := v.(*types.Basic); ok {
-		// "x is the predeclared identifier nil
-		// and T is a pointer, function, slice, map, channel, or interface type"
-		if b.Kind() == types.UntypedNil {
-			switch ut.(type) {
-			case *types.Pointer:
-				return true
-			case *types.Signature:
-				return true
-			case *types.Slice:
-				return true
-			case *types.Map:
-				return true
-			case *types.Chan:
-				return true
-			case *types.Interface:
-				return true
-			}
-		}
+func (c *comparer) assignableBasic(v, t, uv, ut types.Type) bool {
+	b, ok := v.(*types.Basic)
+	if !ok {
+		return false
+	}
 
-		// "x is an untyped constant representable by a value of type T"
-		switch b.Kind() {
-		case types.UntypedBool, types.UntypedInt, types.UntypedRune, types.UntypedFloat, types.UntypedComplex, types.UntypedString:
-			if representable(b, t) {
-				return true
-			}
+	// "x is the predeclared identifier nil
+	// and T is a pointer, function, slice, map, channel, or interface type"
+	if b.Kind() == types.UntypedNil {
+		switch ut.(type) {
+		case *types.Pointer:
+			return true
+		case *types.Signature:
+			return true
+		case *types.Slice:
+			return true
+		case *types.Map:
+			return true
+		case *types.Chan:
+			return true
+		case *types.Interface:
+			return true
 		}
+	}
+
+	// "x is an untyped constant representable by a value of type T"
+	switch b.Kind() {
+	case types.UntypedBool, types.UntypedInt, types.UntypedRune, types.UntypedFloat, types.UntypedComplex, types.UntypedString:
+		return representable(b, t)
 	}
 
 	return false
@@ -304,41 +316,10 @@ func (c *comparer) underlyingIdentical(ua, ub types.Type) bool {
 		return false
 
 	case *types.Interface:
-		// Two interface types are identical if they have the same set of methods with the same names and identical function types.
-		// Non-exported method names from different packages are always different.
-		// The order of the methods is irrelevant.
-		if ub, ok := ub.(*types.Interface); ok {
-			if ua.NumMethods() != ub.NumMethods() { // Warning: this panics on incomplete interfaces.
-				return false
-			}
-
-			ma, mb := methodMap(ua), methodMap(ub)
-
-			for aname, afn := range ma {
-				bfn, ok := mb[aname]
-				if !ok {
-					return false
-				}
-				if !afn.Exported() && !c.samePackage(afn.Pkg(), bfn.Pkg()) {
-					return false
-				}
-				if !c.identical(afn.Type(), bfn.Type()) {
-					return false
-				}
-			}
-			return true
-		}
-		return false
+		return c.identicalInterfaces(ua, ub)
 
 	case *types.Map:
-		// Two map types are identical if they have identical key and element types.
-		if ub, ok := ub.(*types.Map); ok {
-			if !c.identical(ua.Key(), ub.Key()) {
-				return false
-			}
-			return c.identical(ua.Elem(), ub.Elem())
-		}
-		return false
+		return c.identicalMaps(ua, ub)
 
 	case *types.Chan:
 		// Two channel types are identical if they have identical element types and the same direction.
@@ -406,6 +387,50 @@ func (c *comparer) identicalSigs(older, newer *types.Signature) (identical, adde
 
 	paramsIdentical, addedParam := c.identicalTuples(older.Params(), newer.Params())
 	return identical && paramsIdentical, addedOptionalParams && addedParam
+}
+
+func (c *comparer) identicalInterfaces(ua *types.Interface, b types.Type) bool {
+	ub, ok := b.(*types.Interface)
+	if !ok {
+		return false
+	}
+
+	// Two interface types are identical if they have the same set of methods with the same names and identical function types.
+	// Non-exported method names from different packages are always different.
+	// The order of the methods is irrelevant.
+
+	if ua.NumMethods() != ub.NumMethods() { // Warning: this panics on incomplete interfaces.
+		return false
+	}
+
+	ma, mb := methodMap(ua), methodMap(ub)
+
+	for aname, afn := range ma {
+		bfn, ok := mb[aname]
+		if !ok {
+			return false
+		}
+		if !afn.Exported() && !c.samePackage(afn.Pkg(), bfn.Pkg()) {
+			return false
+		}
+		if !c.identical(afn.Type(), bfn.Type()) {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *comparer) identicalMaps(ua *types.Map, b types.Type) bool {
+	ub, ok := b.(*types.Map)
+	if !ok {
+		return false
+	}
+
+	// Two map types are identical if they have identical key and element types.
+	if !c.identical(ua.Key(), ub.Key()) {
+		return false
+	}
+	return c.identical(ua.Elem(), ub.Elem())
 }
 
 // https://golang.org/ref/spec#Method_sets

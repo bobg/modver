@@ -63,6 +63,26 @@ func Compare(olders, newers []*packages.Package) Result {
 	)
 
 	c := newComparer()
+
+	// Look for major-version changes.
+	if res := c.compareMajor(older, newer); res != nil {
+		return res
+	}
+
+	// Look for minor-version changes.
+	if res := c.compareMinor(older, newer); res != nil {
+		return res
+	}
+
+	// Finally, look for patchlevel-version changes.
+	if res := c.comparePatchlevel(older, newer); res != nil {
+		return res
+	}
+
+	return None
+}
+
+func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Result {
 	for pkgPath, pkg := range older {
 		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
 			// Nothing in an internal package or subpackage is part of the public API.
@@ -95,7 +115,10 @@ func Compare(olders, newers []*packages.Package) Result {
 		}
 	}
 
-	// Second, look for minor-version changes.
+	return nil
+}
+
+func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Result {
 	for pkgPath, pkg := range newer {
 		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
 			// Nothing in an internal package or subpackage is part of the public API.
@@ -128,7 +151,10 @@ func Compare(olders, newers []*packages.Package) Result {
 		}
 	}
 
-	// Finally, look for patchlevel-version changes.
+	return nil
+}
+
+func (c *comparer) comparePatchlevel(older, newer map[string]*packages.Package) Result {
 	for pkgPath, pkg := range older {
 		var (
 			topObjs = makeTopObjs(pkg)
@@ -149,7 +175,7 @@ func Compare(olders, newers []*packages.Package) Result {
 		}
 	}
 
-	return None
+	return nil
 }
 
 // CompareDirs loads Go modules from the directories at older and newer
