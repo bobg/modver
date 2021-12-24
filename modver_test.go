@@ -24,13 +24,12 @@ func TestNone(t *testing.T) {
 	runtest(t, "none", None)
 }
 
-func runtest(t *testing.T, subtree string, want ResultCode) {
-	olderTree := filepath.Join("testdata", subtree, "older")
-	entries, err := os.ReadDir(olderTree)
+func runtest(t *testing.T, typ string, want ResultCode) {
+	tree := filepath.Join("testdata", typ)
+	entries, err := os.ReadDir(tree)
 	if err != nil {
 		t.Fatal(err)
 	}
-	newerTree := filepath.Join("testdata", subtree, "newer")
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -38,9 +37,9 @@ func runtest(t *testing.T, subtree string, want ResultCode) {
 		if strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
-		t.Run(entry.Name(), func(t *testing.T) {
-			olderDir := filepath.Join(olderTree, entry.Name())
-			newerDir := filepath.Join(newerTree, entry.Name())
+		t.Run(filepath.Join(typ, entry.Name()), func(t *testing.T) {
+			olderDir := filepath.Join(tree, entry.Name(), "older")
+			newerDir := filepath.Join(tree, entry.Name(), "newer")
 			got, err := CompareDirs(olderDir, newerDir)
 			if err != nil {
 				t.Fatal(err)
