@@ -83,7 +83,7 @@ func runtest(t *testing.T, typ string, want ResultCode) {
 			_, err = os.Stat(gomodSrc)
 			if os.IsNotExist(err) {
 				b := new(bytes.Buffer)
-				fmt.Fprintf(b, "module %s\n\ngo 1.16\n", entry.Name())
+				fmt.Fprintf(b, "module %s\n\ngo 1.18\n", entry.Name())
 				err = os.WriteFile(gomodOlder, b.Bytes(), 0644)
 				if err != nil {
 					t.Fatal(err)
