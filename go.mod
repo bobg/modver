@@ -1,6 +1,6 @@
 module github.com/bobg/modver
 
-go 1.16
+go 1.18
 
 require (
 	github.com/go-git/go-git v4.7.0+incompatible // indirect
