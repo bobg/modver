@@ -27,6 +27,9 @@ func (c *comparer) compareTypes(older, newer types.Type) Result {
 	}
 	if olderNamed, ok := older.(*types.Named); ok {
 		if newerNamed, ok := newer.(*types.Named); ok {
+			if res := c.compareTypeParamLists(olderNamed.TypeParams(), newerNamed.TypeParams()); res.Code() == Major {
+				return res
+			}
 			// We already know they have the same name and package.
 			return c.compareTypes(olderNamed.Underlying(), newerNamed.Underlying())
 		}
@@ -61,6 +64,20 @@ func (c *comparer) compareTypes(older, newer types.Type) Result {
 	}
 	if !c.assignableTo(newer, older) {
 		return Major.wrap(fmt.Sprintf("%s is not assignable to %s", newer, older))
+	}
+	return None
+}
+
+func (c *comparer) compareTypeParamLists(older, newer *types.TypeParamList) Result {
+	if older.Len() != newer.Len() {
+		return Major.wrap(fmt.Sprintf("went from %d type parameters to %d", older.Len(), newer.Len()))
+	}
+	for rcode := Major; rcode >= Patchlevel; rcode-- {
+		for i := 0; i < older.Len(); i++ {
+			if res := c.compareTypes(older.At(i).Constraint(), newer.At(i).Constraint()); res.Code() == rcode {
+				return res.wrap(fmt.Sprintf("constraint change in type parameter %d", i))
+			}
+		}
 	}
 	return None
 }

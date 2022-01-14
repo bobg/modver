@@ -37,6 +37,15 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 			if na.Obj().Name() != nb.Obj().Name() {
 				return false
 			}
+			tpa, tpb := na.TypeParams(), nb.TypeParams()
+			if tpa.Len() != tpb.Len() {
+				return false
+			}
+			for i := 0; i < tpa.Len(); i++ {
+				if !c.identical(tpa.At(i).Constraint(), tpb.At(i).Constraint()) {
+					return false
+				}
+			}
 			// Can't return true yet just because the types have equal names.
 			// Continue to checking their underlying types.
 		} else {
