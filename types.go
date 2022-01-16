@@ -74,12 +74,22 @@ func (c *comparer) compareTypeParamLists(older, newer *types.TypeParamList) Resu
 	}
 	for rcode := Major; rcode >= Patchlevel; rcode-- {
 		for i := 0; i < older.Len(); i++ {
-			if res := c.compareTypes(older.At(i).Constraint(), newer.At(i).Constraint()); res.Code() == rcode {
+			if res := c.compareConstraints(older.At(i).Constraint(), newer.At(i).Constraint()); res.Code() == rcode {
 				return res.wrap(fmt.Sprintf("constraint change in type parameter %d", i))
 			}
 		}
 	}
 	return None
+}
+
+func (c *comparer) compareConstraints(older, newer types.Type) Result {
+	if c.identicalConstraint(older, newer) {
+		return None
+	}
+	if c.assignableTo(newer, older) {
+		return Minor.wrap(fmt.Sprintf("new constraint %s is a superset of old", newer))
+	}
+	return Major.wrap(fmt.Sprintf("new constraint %s is not assignable to old", newer))
 }
 
 func (c *comparer) compareStructs(older, newer *types.Struct) Result {
