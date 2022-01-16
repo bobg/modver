@@ -27,11 +27,15 @@ func (c *comparer) compareTypes(older, newer types.Type) Result {
 	}
 	if olderNamed, ok := older.(*types.Named); ok {
 		if newerNamed, ok := newer.(*types.Named); ok {
-			if res := c.compareTypeParamLists(olderNamed.TypeParams(), newerNamed.TypeParams()); res.Code() == Major {
-				return res
+			typeParamsRes := c.compareTypeParamLists(olderNamed.TypeParams(), newerNamed.TypeParams())
+			if typeParamsRes.Code() == Major {
+				return typeParamsRes
 			}
-			// We already know they have the same name and package.
-			return c.compareTypes(olderNamed.Underlying(), newerNamed.Underlying())
+			underlyingRes := c.compareTypes(olderNamed.Underlying(), newerNamed.Underlying())
+			if typeParamsRes.Code() > underlyingRes.Code() {
+				return typeParamsRes
+			}
+			return underlyingRes
 		}
 		// This is probably impossible.
 		// How can newer not be *types.Named if older is,
