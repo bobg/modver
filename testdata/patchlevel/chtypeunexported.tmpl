@@ -1,0 +1,13 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package chtypeunexported
+
+var x int
+{{ end }}
+
+{{ define "newer" }}
+package chtypeunexported
+
+var x string
+{{ end }}

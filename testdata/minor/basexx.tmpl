@@ -1,0 +1,785 @@
+// -*- mode: go -*-
+
+// Older parts are from github.com/bobg/basexx at commit dbebfe56b6709535c4458efe67f07e39036e601f.
+// Newer parts are from github.com/bobg/basexx at commit 17b80a746b356ae36343e0c4712191ff7331175f.
+
+// {{ define "older/alnum.go" }}
+package basexx
+
+// Alnum is a type for bases from 2 through 36,
+// where the digits for the first 10 digit values are '0' through '9'
+// and the remaining digits are 'a' through 'z'.
+// For decoding, upper-case 'A' through 'Z' are the same as lower-case.
+type Alnum int
+
+func (a Alnum) N() int64 { return int64(a) }
+
+func (a Alnum) Encode(val int64) ([]byte, error) {
+	if val < 0 || val >= int64(a) {
+		return nil, ErrInvalid
+	}
+	if val < 10 {
+		return []byte{byte(val) + '0'}, nil
+	}
+	return []byte{byte(val) + 'a' - 10}, nil
+}
+
+func (a Alnum) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	digit := byte(inp[0])
+	switch {
+	case '0' <= digit && digit <= '9':
+		return int64(digit - '0'), nil
+	case 'a' <= digit && digit <= 'z':
+		return int64(digit - 'a' + 10), nil
+	case 'A' <= digit && digit <= 'Z':
+		return int64(digit - 'A' + 10), nil
+	default:
+		return 0, ErrInvalid
+	}
+}
+
+const (
+	Base2  = Alnum(2)
+	Base8  = Alnum(8)
+	Base10 = Alnum(10)
+	Base12 = Alnum(12)
+	Base16 = Alnum(16)
+	Base32 = Alnum(32)
+	Base36 = Alnum(36)
+)
+// {{ end }}
+
+// {{ define "older/base50.go" }}
+package basexx
+
+const base50digits = "0123456789bcdfghjkmnpqrstvwxyzBCDFGHJKMNPQRSTVWXYZ"
+
+var base50digitVals [256]int64
+
+type base50 struct{}
+
+func (b base50) N() int64 { return 50 }
+
+func (b base50) Encode(val int64) ([]byte, error) {
+	if val < 0 || val > 49 {
+		return nil, ErrInvalid
+	}
+	return []byte{byte(base50digits[val])}, nil
+}
+
+func (b base50) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	val := base50digitVals[inp[0]]
+	if val < 0 {
+		return 0, ErrInvalid
+	}
+	return val, nil
+}
+
+// Base50 uses digits 0-9, then lower-case bcdfghjkmnpqrstvwxyz, then upper-case BCDFGHJKMNPQRSTVWXYZ.
+// It excludes vowels (to avoid inadvertently spelling naughty words) plus lower- and upper-case L.
+var Base50 base50
+
+func init() {
+	for i := 0; i < 256; i++ {
+		base50digitVals[i] = -1
+	}
+	for i := 0; i < len(base50digits); i++ {
+		base50digitVals[base50digits[i]] = int64(i)
+	}
+}
+// {{ end }}
+
+// {{ define "older/base62.go" }}
+package basexx
+
+type base62 struct{}
+
+func (b base62) N() int64 { return 62 }
+
+func (b base62) Encode(val int64) ([]byte, error) {
+	if val < 0 || val > 61 {
+		return nil, ErrInvalid
+	}
+	if val < 10 {
+		return []byte{byte(val) + '0'}, nil
+	}
+	if val < 36 {
+		return []byte{byte(val) - 10 + 'a'}, nil
+	}
+	return []byte{byte(val) - 36 + 'A'}, nil
+}
+
+func (b base62) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	digit := byte(inp[0])
+	switch {
+	case '0' <= digit && digit <= '9':
+		return int64(digit - '0'), nil
+	case 'a' <= digit && digit <= 'z':
+		return int64(digit - 'a' + 10), nil
+	case 'A' <= digit && digit <= 'Z':
+		return int64(digit - 'A' + 36), nil
+	default:
+		return 0, ErrInvalid
+	}
+}
+
+// Base62 uses digits 0..9, then a..z, then A..Z.
+var Base62 base62
+// {{ end }}
+
+// {{ define "older/base94.go" }}
+package basexx
+
+type base94 struct{}
+
+func (b base94) N() int64 { return 94 }
+
+func (b base94) Encode(val int64) ([]byte, error) {
+	if val < 0 || val > 93 {
+		return nil, ErrInvalid
+	}
+	return []byte{byte(val + 33)}, nil
+}
+
+func (b base94) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	digit := inp[0]
+	if digit < 33 || digit > 126 {
+		return 0, ErrInvalid
+	}
+	return int64(digit - 33), nil
+}
+
+// Base94 uses all printable ASCII characters (33 through 126) as digits.
+var Base94 base94
+// {{ end }}
+
+// {{ define "older/basexx.go" }}
+// Package basexx permits converting between digit strings of arbitrary bases.
+package basexx
+
+import (
+	"errors"
+	"io"
+	"math"
+	"math/big"
+)
+
+// Source is a source of digit values in a given base.
+type Source interface {
+	// Read produces the value of the next-least-significant digit in the source.
+	// The value must be between 0 and Base()-1, inclusive.
+	// End of input is signaled with the error io.EOF.
+	Read() (int64, error)
+
+	// Base gives the base of the Source.
+	// Digit values in the Source must all be between 0 and Base()-1, inclusive.
+	// Behavior is undefined if the value of Base() varies during the lifetime of a Source
+	// or if Base() < 2.
+	Base() int64
+}
+
+// Dest is a destination for writing digits in a given base.
+// Digits are written right-to-left, from least significant to most.
+type Dest interface {
+	// Prepend encodes the next-most-significant digit value and prepends it to the destination.
+	Prepend(int64) error
+
+	// Base gives the base of the Dest.
+	// Digit values in the Dest must all be between 0 and Base()-1, inclusive.
+	// Behavior is undefined if the value of Base() varies during the lifetime of a Dest
+	// or if Base() < 2.
+	Base() int64
+}
+
+// Base is the type of a base.
+type Base interface {
+	// N is the number of the base,
+	// i.e. the number of unique digits.
+	// Behavior is undefined if the value of N() varies during the lifetime of a Base
+	// or if N() < 2.
+	N() int64
+
+	// Encode converts a digit value to the string of bytes representing its digit.
+	// The input must be a valid digit value between 0 and N()-1, inclusive.
+	Encode(int64) ([]byte, error)
+
+	// Decode converts a string of bytes representing a digit into its numeric value.
+	Decode([]byte) (int64, error)
+}
+
+// ErrInvalid is used for invalid input to Base.Encode and Base.Decode.
+var ErrInvalid = errors.New("invalid")
+
+var zero = new(big.Int)
+
+// Convert converts the digits of src, writing them to dest.
+// Both src and dest specify their bases.
+// Return value is the number of digits written to dest (even in case of error).
+// This function consumes all of src before producing any of dest,
+// so it may not be suitable for input streams of arbitrary length.
+func Convert(dest Dest, src Source) (int, error) {
+	var (
+		accum    = new(big.Int)
+		srcBase  = big.NewInt(src.Base())
+		destBase = big.NewInt(dest.Base())
+	)
+	for {
+		digit, err := src.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return 0, err
+		}
+		accum.Mul(accum, srcBase)
+		if digit != 0 {
+			accum.Add(accum, big.NewInt(digit))
+		}
+	}
+	var written int
+	for accum.Cmp(zero) > 0 {
+		r := new(big.Int)
+		accum.QuoRem(accum, destBase, r)
+		err := dest.Prepend(r.Int64())
+		if err != nil {
+			return written, err
+		}
+		written++
+	}
+	if written == 0 {
+		err := dest.Prepend(0)
+		if err != nil {
+			return written, err
+		}
+		written++
+	}
+	return written, nil
+}
+
+// Length computes the maximum number of digits needed
+// to convert `n` digits in base `from` to base `to`.
+func Length(from, to int64, n int) int {
+	ratio := math.Log(float64(from)) / math.Log(float64(to))
+	result := float64(n) * ratio
+	return int(math.Ceil(result))
+}
+// {{ end }}
+
+// {{ define "older/binary.go" }}
+package basexx
+
+type binary struct{}
+
+func (b binary) N() int64 { return 256 }
+
+func (b binary) Encode(val int64) ([]byte, error) {
+	if val < 0 || val > 255 {
+		return nil, ErrInvalid
+	}
+	return []byte{byte(val)}, nil
+}
+
+func (b binary) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	return int64(inp[0]), nil
+}
+
+// Binary is base 256 encoded the obvious way: digit value X = byte(X).
+var Binary binary
+// {{ end }}
+
+// {{ define "older/buffer.go" }}
+package basexx
+
+import "io"
+
+// Buffer can act as a Source or a Dest (but not both at the same time)
+// in the case where each byte in a given slice encodes a single digit in the desired base.
+// The digits in the buffer are in the expected order:
+// namely, most-significant first, least-significant last.
+type Buffer struct {
+	buf  []byte
+	next int
+	base Base
+}
+
+// NewBuffer produces a Buffer from the given byte slice described by the given Base.
+func NewBuffer(buf []byte, base Base) *Buffer {
+	return &Buffer{
+		buf:  buf,
+		next: -1, // "unstarted" sentinel value
+		base: base,
+	}
+}
+
+func (s *Buffer) Read() (int64, error) {
+	if s.next < 0 {
+		s.next = 0
+	}
+	if s.next >= len(s.buf) {
+		return 0, io.EOF
+	}
+	dec, err := s.base.Decode([]byte{s.buf[s.next]})
+	if err != nil {
+		return 0, err
+	}
+	s.next++
+	return dec, nil
+}
+
+func (s *Buffer) Prepend(val int64) error {
+	if s.next < 0 {
+		s.next = len(s.buf)
+	}
+	if s.next == 0 {
+		return io.EOF
+	}
+	enc, err := s.base.Encode(val)
+	if err != nil {
+		return err
+	}
+	if len(enc) != 1 {
+		return ErrInvalid
+	}
+	s.next--
+	s.buf[s.next] = enc[0]
+	return nil
+}
+
+func (s *Buffer) Written() []byte {
+	if s.next < 0 {
+		return nil
+	}
+	return s.buf[s.next:]
+}
+
+func (s *Buffer) Base() int64 {
+	return s.base.N()
+}
+// {{ end }}
+
+// {{ define "newer/alnum.go" }}
+package basexx
+
+// Alnum is a type for bases from 2 through 36,
+// where the digits for the first 10 digit values are '0' through '9'
+// and the remaining digits are 'a' through 'z'.
+// For decoding, upper-case 'A' through 'Z' are the same as lower-case.
+type Alnum int
+
+func (a Alnum) N() int64 { return int64(a) }
+
+func (a Alnum) Encode(val int64) ([]byte, error) {
+	if val < 0 || val >= int64(a) {
+		return nil, ErrInvalid
+	}
+	if val < 10 {
+		return []byte{byte(val) + '0'}, nil
+	}
+	return []byte{byte(val) + 'a' - 10}, nil
+}
+
+func (a Alnum) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	digit := byte(inp[0])
+	switch {
+	case '0' <= digit && digit <= '9':
+		return int64(digit - '0'), nil
+	case 'a' <= digit && digit <= 'z':
+		return int64(digit - 'a' + 10), nil
+	case 'A' <= digit && digit <= 'Z':
+		return int64(digit - 'A' + 10), nil
+	default:
+		return 0, ErrInvalid
+	}
+}
+
+const (
+	Base2  = Alnum(2)
+	Base8  = Alnum(8)
+	Base10 = Alnum(10)
+	Base12 = Alnum(12)
+	Base16 = Alnum(16)
+	Base32 = Alnum(32)
+	Base36 = Alnum(36)
+)
+// {{ end }}
+
+// {{ define "newer/base30.go" }}
+package basexx
+
+const base30digits = "0123456789bcdfghjkmnpqrstvwxyz"
+
+var base30digitVals [256]int64
+
+type base30 struct{}
+
+func (b base30) N() int64 { return 30 }
+
+func (b base30) Encode(val int64) ([]byte, error) {
+	if val < 0 || val > 49 {
+		return nil, ErrInvalid
+	}
+	return []byte{byte(base30digits[val])}, nil
+}
+
+func (b base30) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	val := base30digitVals[inp[0]]
+	if val < 0 {
+		return 0, ErrInvalid
+	}
+	return val, nil
+}
+
+// Base30 uses digits 0-9, then lower-case bcdfghjkmnpqrstvwxyz.
+// It excludes vowels (to avoid inadvertently spelling naughty words) and the letter "l".
+var Base30 base30
+
+func init() {
+	for i := 0; i < 256; i++ {
+		base30digitVals[i] = -1
+	}
+	for i := 0; i < len(base30digits); i++ {
+		base30digitVals[base30digits[i]] = int64(i)
+	}
+}
+// {{ end }}
+
+// {{ define "newer/base50.go" }}
+package basexx
+
+const base50digits = "0123456789bcdfghjkmnpqrstvwxyzBCDFGHJKMNPQRSTVWXYZ"
+
+var base50digitVals [256]int64
+
+type base50 struct{}
+
+func (b base50) N() int64 { return 50 }
+
+func (b base50) Encode(val int64) ([]byte, error) {
+	if val < 0 || val > 49 {
+		return nil, ErrInvalid
+	}
+	return []byte{byte(base50digits[val])}, nil
+}
+
+func (b base50) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	val := base50digitVals[inp[0]]
+	if val < 0 {
+		return 0, ErrInvalid
+	}
+	return val, nil
+}
+
+// Base50 uses digits 0-9, then lower-case bcdfghjkmnpqrstvwxyz, then upper-case BCDFGHJKMNPQRSTVWXYZ.
+// It excludes vowels (to avoid inadvertently spelling naughty words) plus lower- and upper-case L.
+var Base50 base50
+
+func init() {
+	for i := 0; i < 256; i++ {
+		base50digitVals[i] = -1
+	}
+	for i := 0; i < len(base50digits); i++ {
+		base50digitVals[base50digits[i]] = int64(i)
+	}
+}
+// {{ end }}
+
+// {{ define "newer/base62.go" }}
+package basexx
+
+type base62 struct{}
+
+func (b base62) N() int64 { return 62 }
+
+func (b base62) Encode(val int64) ([]byte, error) {
+	if val < 0 || val > 61 {
+		return nil, ErrInvalid
+	}
+	if val < 10 {
+		return []byte{byte(val) + '0'}, nil
+	}
+	if val < 36 {
+		return []byte{byte(val) - 10 + 'a'}, nil
+	}
+	return []byte{byte(val) - 36 + 'A'}, nil
+}
+
+func (b base62) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	digit := byte(inp[0])
+	switch {
+	case '0' <= digit && digit <= '9':
+		return int64(digit - '0'), nil
+	case 'a' <= digit && digit <= 'z':
+		return int64(digit - 'a' + 10), nil
+	case 'A' <= digit && digit <= 'Z':
+		return int64(digit - 'A' + 36), nil
+	default:
+		return 0, ErrInvalid
+	}
+}
+
+// Base62 uses digits 0..9, then a..z, then A..Z.
+var Base62 base62
+// {{ end }}
+
+// {{ define "newer/base94.go" }}
+package basexx
+
+type base94 struct{}
+
+func (b base94) N() int64 { return 94 }
+
+func (b base94) Encode(val int64) ([]byte, error) {
+	if val < 0 || val > 93 {
+		return nil, ErrInvalid
+	}
+	return []byte{byte(val + 33)}, nil
+}
+
+func (b base94) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	digit := inp[0]
+	if digit < 33 || digit > 126 {
+		return 0, ErrInvalid
+	}
+	return int64(digit - 33), nil
+}
+
+// Base94 uses all printable ASCII characters (33 through 126) as digits.
+var Base94 base94
+// {{ end }}
+
+// {{ define "newer/basexx.go" }}
+// Package basexx permits converting between digit strings of arbitrary bases.
+package basexx
+
+import (
+	"errors"
+	"io"
+	"math"
+	"math/big"
+)
+
+// Source is a source of digit values in a given base.
+type Source interface {
+	// Read produces the value of the next-least-significant digit in the source.
+	// The value must be between 0 and Base()-1, inclusive.
+	// End of input is signaled with the error io.EOF.
+	Read() (int64, error)
+
+	// Base gives the base of the Source.
+	// Digit values in the Source must all be between 0 and Base()-1, inclusive.
+	// Behavior is undefined if the value of Base() varies during the lifetime of a Source
+	// or if Base() < 2.
+	Base() int64
+}
+
+// Dest is a destination for writing digits in a given base.
+// Digits are written right-to-left, from least significant to most.
+type Dest interface {
+	// Prepend encodes the next-most-significant digit value and prepends it to the destination.
+	Prepend(int64) error
+
+	// Base gives the base of the Dest.
+	// Digit values in the Dest must all be between 0 and Base()-1, inclusive.
+	// Behavior is undefined if the value of Base() varies during the lifetime of a Dest
+	// or if Base() < 2.
+	Base() int64
+}
+
+// Base is the type of a base.
+type Base interface {
+	// N is the number of the base,
+	// i.e. the number of unique digits.
+	// Behavior is undefined if the value of N() varies during the lifetime of a Base
+	// or if N() < 2.
+	N() int64
+
+	// Encode converts a digit value to the string of bytes representing its digit.
+	// The input must be a valid digit value between 0 and N()-1, inclusive.
+	Encode(int64) ([]byte, error)
+
+	// Decode converts a string of bytes representing a digit into its numeric value.
+	Decode([]byte) (int64, error)
+}
+
+// ErrInvalid is used for invalid input to Base.Encode and Base.Decode.
+var ErrInvalid = errors.New("invalid")
+
+var zero = new(big.Int)
+
+// Convert converts the digits of src, writing them to dest.
+// Both src and dest specify their bases.
+// Return value is the number of digits written to dest (even in case of error).
+// This function consumes all of src before producing any of dest,
+// so it may not be suitable for input streams of arbitrary length.
+func Convert(dest Dest, src Source) (int, error) {
+	var (
+		accum    = new(big.Int)
+		srcBase  = big.NewInt(src.Base())
+		destBase = big.NewInt(dest.Base())
+	)
+	for {
+		digit, err := src.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return 0, err
+		}
+		accum.Mul(accum, srcBase)
+		if digit != 0 {
+			accum.Add(accum, big.NewInt(digit))
+		}
+	}
+	var written int
+	for accum.Cmp(zero) > 0 {
+		r := new(big.Int)
+		accum.QuoRem(accum, destBase, r)
+		err := dest.Prepend(r.Int64())
+		if err != nil {
+			return written, err
+		}
+		written++
+	}
+	if written == 0 {
+		err := dest.Prepend(0)
+		if err != nil {
+			return written, err
+		}
+		written++
+	}
+	return written, nil
+}
+
+// Length computes the maximum number of digits needed
+// to convert `n` digits in base `from` to base `to`.
+func Length(from, to int64, n int) int {
+	ratio := math.Log(float64(from)) / math.Log(float64(to))
+	result := float64(n) * ratio
+	return int(math.Ceil(result))
+}
+// {{ end }}
+
+// {{ define "newer/binary.go" }}
+package basexx
+
+type binary struct{}
+
+func (b binary) N() int64 { return 256 }
+
+func (b binary) Encode(val int64) ([]byte, error) {
+	if val < 0 || val > 255 {
+		return nil, ErrInvalid
+	}
+	return []byte{byte(val)}, nil
+}
+
+func (b binary) Decode(inp []byte) (int64, error) {
+	if len(inp) != 1 {
+		return 0, ErrInvalid
+	}
+	return int64(inp[0]), nil
+}
+
+// Binary is base 256 encoded the obvious way: digit value X = byte(X).
+var Binary binary
+// {{ end }}
+
+// {{ define "newer/buffer.go" }}
+package basexx
+
+import "io"
+
+// Buffer can act as a Source or a Dest (but not both at the same time)
+// in the case where each byte in a given slice encodes a single digit in the desired base.
+// The digits in the buffer are in the expected order:
+// namely, most-significant first, least-significant last.
+type Buffer struct {
+	buf  []byte
+	next int
+	base Base
+}
+
+// NewBuffer produces a Buffer from the given byte slice described by the given Base.
+func NewBuffer(buf []byte, base Base) *Buffer {
+	return &Buffer{
+		buf:  buf,
+		next: -1, // "unstarted" sentinel value
+		base: base,
+	}
+}
+
+func (s *Buffer) Read() (int64, error) {
+	if s.next < 0 {
+		s.next = 0
+	}
+	if s.next >= len(s.buf) {
+		return 0, io.EOF
+	}
+	dec, err := s.base.Decode([]byte{s.buf[s.next]})
+	if err != nil {
+		return 0, err
+	}
+	s.next++
+	return dec, nil
+}
+
+func (s *Buffer) Prepend(val int64) error {
+	if s.next < 0 {
+		s.next = len(s.buf)
+	}
+	if s.next == 0 {
+		return io.EOF
+	}
+	enc, err := s.base.Encode(val)
+	if err != nil {
+		return err
+	}
+	if len(enc) != 1 {
+		return ErrInvalid
+	}
+	s.next--
+	s.buf[s.next] = enc[0]
+	return nil
+}
+
+func (s *Buffer) Written() []byte {
+	if s.next < 0 {
+		return nil
+	}
+	return s.buf[s.next:]
+}
+
+func (s *Buffer) Base() int64 {
+	return s.base.N()
+}
+// {{ end }}

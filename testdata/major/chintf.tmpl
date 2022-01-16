@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package chintf
+
+type X interface {
+	A() int
+}
+{{ end }}
+
+{{ define "newer" }}
+package chintf
+
+type X interface {
+	B() string
+}
+{{ end }}

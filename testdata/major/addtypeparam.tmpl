@@ -1,0 +1,21 @@
+// -*- mode: go -*-
+
+// {{ define "older" }}
+
+package addtypeparam
+
+type T[X any] struct {
+	F func(X) X
+}
+
+// {{ end }}
+
+// {{ define "newer" }}
+
+package addtypeparam
+
+type T[X, Y any] struct {
+	F func(X) Y
+}
+
+// {{ end }}

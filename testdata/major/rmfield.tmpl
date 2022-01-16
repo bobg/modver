@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package rmfield
+
+type A struct {
+	X, Y int
+}
+{{ end }}
+
+{{ define "newer" }}
+package rmfield
+
+type A struct {
+	X int
+}
+{{ end }}

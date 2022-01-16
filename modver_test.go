@@ -1,15 +1,17 @@
 package modver
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	cp "github.com/otiai10/copy"
+	"text/template"
 )
 
 func TestMajor(t *testing.T) {
@@ -35,14 +37,19 @@ func runtest(t *testing.T, typ string, want ResultCode) {
 		t.Fatal(err)
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if entry.IsDir() {
 			continue
 		}
-		if strings.HasPrefix(entry.Name(), ".") {
+		if !strings.HasSuffix(entry.Name(), ".tmpl") {
 			continue
 		}
+		name := strings.TrimSuffix(entry.Name(), ".tmpl")
+		t.Run(fmt.Sprintf("%s/%s", typ, name), func(t *testing.T) {
+			tmpls, err := template.ParseFiles(filepath.Join(tree, entry.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		t.Run(filepath.Join(typ, entry.Name()), func(t *testing.T) {
 			tmpdir, err := os.MkdirTemp("", "modver")
 			if err != nil {
 				t.Fatal(err)
@@ -50,12 +57,10 @@ func runtest(t *testing.T, typ string, want ResultCode) {
 			defer os.RemoveAll(tmpdir)
 
 			var (
-				srcdir       = filepath.Join(tree, entry.Name())
-				olderSrcDir  = filepath.Join(srcdir, "older")
-				newerSrcDir  = filepath.Join(srcdir, "newer")
 				olderTestDir = filepath.Join(tmpdir, "older")
 				newerTestDir = filepath.Join(tmpdir, "newer")
 			)
+
 			err = os.Mkdir(olderTestDir, 0755)
 			if err != nil {
 				t.Fatal(err)
@@ -65,54 +70,61 @@ func runtest(t *testing.T, typ string, want ResultCode) {
 				t.Fatal(err)
 			}
 
-			err = cp.Copy(olderSrcDir, olderTestDir)
-			if err != nil {
-				t.Fatal(err)
-			}
-			err = cp.Copy(newerSrcDir, newerTestDir)
-			if err != nil {
-				t.Fatal(err)
-			}
+			var sawGomod bool
+			for _, tmpl := range tmpls.Templates() {
+				// Skip the top-level template
+				if strings.HasSuffix(tmpl.Name(), ".tmpl") {
+					continue
+				}
 
-			var (
-				gomodSrc   = filepath.Join(srcdir, "go.mod")
-				gomodOlder = filepath.Join(olderTestDir, "go.mod")
-				gomodNewer = filepath.Join(newerTestDir, "go.mod")
-			)
+				sawGomod = sawGomod || (tmpl.Name() == "go.mod")
 
-			_, err = os.Stat(gomodSrc)
-			if os.IsNotExist(err) {
-				b := new(bytes.Buffer)
-				fmt.Fprintf(b, "module %s\n\ngo 1.18\n", entry.Name())
-				err = os.WriteFile(gomodOlder, b.Bytes(), 0644)
-				if err != nil {
-					t.Fatal(err)
+				parts := strings.Split(tmpl.Name(), "/")
+				if !strings.Contains(parts[len(parts)-1], ".") {
+					parts = append(parts, "x.go")
 				}
-				err = os.WriteFile(gomodNewer, b.Bytes(), 0644)
-				if err != nil {
-					t.Fatal(err)
+
+				if len(parts) == 1 {
+					// Only a filename is given.
+					// Write it to both older and newer dirs.
+					buf := new(bytes.Buffer)
+					err = executeTmpl(tmpl, buf)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, subdir := range []string{olderTestDir, newerTestDir} {
+						filename := filepath.Join(subdir, parts[0])
+						err = os.WriteFile(filename, buf.Bytes(), 0644)
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+					continue
 				}
-			} else if err != nil {
-				t.Fatal(err)
-			} else {
-				err = cp.Copy(gomodSrc, gomodOlder)
-				if err != nil {
-					t.Fatal(err)
+
+				if len(parts) > 1 {
+					dirparts := append([]string{tmpdir}, parts[:len(parts)-1]...)
+					dirname := filepath.Join(dirparts...)
+					err = os.MkdirAll(dirname, 0755)
+					if err != nil {
+						t.Fatal(err)
+					}
 				}
-				err = cp.Copy(gomodSrc, gomodNewer)
+				fileparts := append([]string{tmpdir}, parts...)
+				filename := filepath.Join(fileparts...)
+				err = executeTmplToFile(tmpl, filename)
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
-
-			gosumSrc := filepath.Join(srcdir, "go.sum")
-			_, err = os.Stat(gosumSrc)
-			if err == nil {
-				err = cp.Copy(gosumSrc, filepath.Join(olderTestDir, "go.sum"))
+			if !sawGomod {
+				buf := new(bytes.Buffer)
+				fmt.Fprintf(buf, "module %s\n\ngo 1.18\n", name)
+				err = os.WriteFile(filepath.Join(olderTestDir, "go.mod"), buf.Bytes(), 0644)
 				if err != nil {
 					t.Fatal(err)
 				}
-				err = cp.Copy(gosumSrc, filepath.Join(newerTestDir, "go.sum"))
+				err = os.WriteFile(filepath.Join(newerTestDir, "go.mod"), buf.Bytes(), 0644)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -129,6 +141,34 @@ func runtest(t *testing.T, typ string, want ResultCode) {
 			}
 		})
 	}
+}
+
+func executeTmpl(tmpl *template.Template, w io.Writer) error {
+	pr, pw := io.Pipe()
+	go func() {
+		err := tmpl.Execute(pw, nil)
+		if err != nil {
+			log.Printf("Error executing template: %s\n", err)
+		}
+		pw.Close()
+	}()
+
+	sc := bufio.NewScanner(pr)
+	for sc.Scan() {
+		line := sc.Text()
+		line = strings.TrimPrefix(line, "//// ")
+		fmt.Fprintln(w, line)
+	}
+	return sc.Err()
+}
+
+func executeTmplToFile(tmpl *template.Template, filename string) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return executeTmpl(tmpl, f)
 }
 
 func TestGit(t *testing.T) {

@@ -1,0 +1,19 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package chstructorder
+
+type S struct {
+	A int
+	B string
+}
+{{ end }}
+
+{{ define "newer" }}
+package chstructorder
+
+type S struct {
+	B string
+	A int
+}
+{{ end }}

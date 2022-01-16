@@ -1,0 +1,15 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package tononstruct
+
+type X struct {
+	A int
+}
+{{ end }}
+
+{{ define "newer" }}
+package tononstruct
+
+type X int
+{{ end }}
