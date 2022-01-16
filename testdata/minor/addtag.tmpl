@@ -1,17 +1,17 @@
 // -*- mode: go -*-
 
-{{ define "older" }}
+// {{ define "older" }}
 package addtag
 
 type X struct {
 	A int `foo:"bar"`
 }
-{{ end }}
+// {{ end }}
 
-{{ define "newer" }}
+// {{ define "newer" }}
 package addtag
 
 type X struct {
 	A int `foo:"bar" baz:"quux"`
 }
-{{ end }}
+// {{ end }}
