@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package chfield
+
+type X struct {
+	A int
+}
+{{ end }}
+
+{{ define "newer" }}
+package chfield
+
+type X struct {
+	A string
+}
+{{ end }}

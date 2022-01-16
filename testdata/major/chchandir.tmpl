@@ -1,0 +1,13 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package chchandir
+
+var X <-chan int
+{{ end }}
+
+{{ define "newer" }}
+package chchandir
+
+var X chan<- int
+{{ end }}

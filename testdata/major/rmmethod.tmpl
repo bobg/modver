@@ -1,0 +1,18 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package rmmethod
+
+type X int
+
+func (X) M1() {}
+func (X) M2() {}
+{{ end }}
+
+{{ define "newer" }}
+package rmmethod
+
+type X int
+
+func (X) M1() {}
+{{ end }}

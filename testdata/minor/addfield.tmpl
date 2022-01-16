@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package addfield
+
+type A struct {
+	X int
+}
+{{ end }}
+
+{{ define "newer" }}
+package addfield
+
+type A struct {
+	X, Y int
+}
+{{ end }}

@@ -1,0 +1,25 @@
+// -*- mode: go -*-
+
+// {{ define "older" }}
+package rminternal
+
+var X int
+// {{ end }}
+
+// {{ define "older/internal" }}
+package internal
+
+var Y, Z int
+// {{ end }}
+
+// {{ define "newer" }}
+package rminternal
+
+var X int
+// {{ end }}
+
+// {{ define "newer/internal" }}
+package internal
+
+var Y int
+// {{ end }}

@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package chtag
+
+type X struct {
+	A int `foo:"bar"`
+}
+{{ end }}
+
+{{ define "newer" }}
+package chtag
+
+type X struct {
+	A int `foo:"baz"`
+}
+{{ end }}

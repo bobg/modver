@@ -1,0 +1,15 @@
+// -*- mode: go -*-
+
+{{ define "older" }}
+package tononintf
+
+type X interface {
+	A() int
+}
+{{ end }}
+
+{{ define "newer" }}
+package tononintf
+
+type X int
+{{ end }}
