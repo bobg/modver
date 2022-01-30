@@ -50,10 +50,7 @@ func (c *comparer) compareTypes(older, newer types.Type) Result {
 	}
 	if olderIntf, ok := older.(*types.Interface); ok {
 		if newerIntf, ok := newer.(*types.Interface); ok {
-			if c.assignableTo(newerIntf, olderIntf) {
-				return Minor.wrap(fmt.Sprintf("new interface %s is a superset of old", newer))
-			}
-			return Major.wrap(fmt.Sprintf("new interface %s is not assignable to old", newer))
+			return c.compareInterfaces(olderIntf, newerIntf)
 		}
 		return Major.wrap(fmt.Sprintf("%s went from interface to non-interface", older))
 	}
@@ -94,6 +91,16 @@ func (c *comparer) compareConstraints(older, newer types.Type) Result {
 		return Minor.wrap(fmt.Sprintf("new constraint %s is a superset of old", newer))
 	}
 	return Major.wrap(fmt.Sprintf("new constraint %s is not assignable to old", newer))
+}
+
+func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
+	if c.identicalInterfaces(older, newer) {
+		return None
+	}
+	if c.implements(newer, older) {
+		return Minor.wrap(fmt.Sprintf("new interface %s is a superset of older", newer))
+	}
+	return Major.wrap(fmt.Sprintf("new interface %s does not implement old", newer))
 }
 
 func (c *comparer) compareStructs(older, newer *types.Struct) Result {

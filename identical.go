@@ -184,6 +184,10 @@ func (c *comparer) identicalInterfaces(ua *types.Interface, b types.Type) bool {
 		return false
 	}
 
+	if ua.IsMethodSet() != ub.IsMethodSet() {
+		return false
+	}
+
 	if ua.IsComparable() != ub.IsComparable() {
 		return false
 	}
@@ -210,7 +214,12 @@ func (c *comparer) identicalInterfaces(ua *types.Interface, b types.Type) bool {
 			return false
 		}
 	}
-	return true
+
+	if ua.IsMethodSet() {
+		return true
+	}
+
+	return types.Implements(ua, ub) && types.Implements(ub, ua)
 }
 
 func (c *comparer) identicalMaps(ua *types.Map, b types.Type) bool {

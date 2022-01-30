@@ -1,0 +1,21 @@
+// -*- mode: go -*-
+
+// {{ define "older" }}
+package tightenconstraint2
+
+import "constraints"
+
+type T[X constraints.Ordered] struct {
+	Val X
+}
+// {{ end }}
+
+// {{ define "newer" }}
+package tightenconstraint2
+
+import "constraints"
+
+type T[X constraints.Integer] struct {
+	Val X
+}
+// {{ end }}
