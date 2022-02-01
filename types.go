@@ -1,7 +1,6 @@
 package modver
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 	"regexp"
@@ -12,95 +11,75 @@ import (
 type (
 	comparer struct {
 		stack []typePair
-		cache map[typePair]bool
+		cache map[typePair]Result
 	}
 	typePair struct{ a, b types.Type }
 )
 
 func newComparer() *comparer {
-	return &comparer{cache: make(map[typePair]bool)}
+	return &comparer{cache: make(map[typePair]Result)}
 }
 
-func (c *comparer) compareTypes(older, newer types.Type) Result {
-	if c.identical(older, newer) {
-		return None
+func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
+	pair := typePair{a: older, b: newer}
+	if res, ok := c.cache[pair]; ok {
+		if res == nil {
+			// Break an infinite regress,
+			// e.g. when checking type Node struct { children []*Node }
+			return None
+		}
+		return res
 	}
-	if olderNamed, ok := older.(*types.Named); ok {
-		if newerNamed, ok := newer.(*types.Named); ok {
-			typeParamsRes := c.compareTypeParamLists(olderNamed.TypeParams(), newerNamed.TypeParams())
-			if typeParamsRes.Code() == Major {
-				return typeParamsRes
-			}
-			underlyingRes := c.compareTypes(olderNamed.Underlying(), newerNamed.Underlying())
-			if typeParamsRes.Code() > underlyingRes.Code() {
-				return typeParamsRes
-			}
-			return underlyingRes
+
+	c.cache[pair] = nil
+
+	defer func() {
+		c.cache[pair] = res
+	}()
+
+	switch older := older.(type) {
+	case *types.Named:
+		if newer, ok := newer.(*types.Named); ok {
+			return c.compareNamed(older, newer)
 		}
 		// This is probably impossible.
 		// How can newer not be *types.Named if older is,
 		// and newer has the same name?
-		return Major.wrap(fmt.Sprintf("%s went from defined type to non-defined type", older))
-	}
-	if olderStruct, ok := older.(*types.Struct); ok {
-		if newerStruct, ok := newer.(*types.Struct); ok {
-			return c.compareStructs(olderStruct, newerStruct)
-		}
-		return Major.wrap(fmt.Sprintf("%s went from struct to non-struct", older))
-	}
-	if olderIntf, ok := older.(*types.Interface); ok {
-		if newerIntf, ok := newer.(*types.Interface); ok {
-			return c.compareInterfaces(olderIntf, newerIntf)
-		}
-		return Major.wrap(fmt.Sprintf("%s went from interface to non-interface", older))
-	}
-	if olderSig, ok := older.(*types.Signature); ok {
-		if newerSig, ok := newer.(*types.Signature); ok {
-			if _, added := c.identicalSigs(olderSig, newerSig); added {
-				return Minor.wrap(fmt.Sprintf("%s adds optional parameters", newer))
-			}
-		} else {
-			return Major.wrap(fmt.Sprintf("%s went from function to non-function", older))
-		}
-	}
-	if !c.assignableTo(newer, older) {
-		return Major.wrap(fmt.Sprintf("%s is not assignable to %s", newer, older))
-	}
-	return None
-}
+		return rwrapf(Major, "%s went from defined type to non-defined type", older)
 
-func (c *comparer) compareTypeParamLists(older, newer *types.TypeParamList) Result {
-	if older.Len() != newer.Len() {
-		return Major.wrap(fmt.Sprintf("went from %d type parameters to %d", older.Len(), newer.Len()))
-	}
-	for rcode := Major; rcode >= Patchlevel; rcode-- {
-		for i := 0; i < older.Len(); i++ {
-			if res := c.compareConstraints(older.At(i).Constraint(), newer.At(i).Constraint()); res.Code() == rcode {
-				return res.wrap(fmt.Sprintf("constraint change in type parameter %d", i))
-			}
+	case *types.Struct:
+		if newer, ok := newer.(*types.Struct); ok {
+			return c.compareStructs(older, newer)
 		}
-	}
-	return None
-}
+		return rwrapf(Major, "%s went from struct to non-struct", older)
 
-func (c *comparer) compareConstraints(older, newer types.Type) Result {
-	if c.identicalConstraint(older, newer) {
+	case *types.Interface:
+		if newer, ok := newer.(*types.Interface); ok {
+			return c.compareInterfaces(older, newer)
+		}
+		return rwrapf(Major, "%s went from interface to non-interface", older)
+
+	case *types.Signature:
+		if newer, ok := newer.(*types.Signature); ok {
+			return c.compareSignatures(older, newer)
+		}
+		return rwrapf(Major, "%s went from function to non-function", older)
+
+	default:
+		if !c.assignableTo(newer, older) {
+			return rwrapf(Major, "%s is not assignable to %s", newer, older)
+		}
 		return None
 	}
-	if c.assignableTo(newer, older) {
-		return Minor.wrap(fmt.Sprintf("new constraint %s is a superset of old", newer))
-	}
-	return Major.wrap(fmt.Sprintf("new constraint %s is not assignable to old", newer))
 }
 
-func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
-	if c.identicalInterfaces(older, newer) {
-		return None
+func (c *comparer) compareNamed(older, newer *types.Named) Result {
+	res := c.compareTypeParamLists(older.TypeParams(), newer.TypeParams())
+	if r := c.compareTypes(older.Underlying(), newer.Underlying()); r.Code() > res.Code() {
+		res = r
 	}
-	if c.implements(newer, older) {
-		return Minor.wrap(fmt.Sprintf("new interface %s is a superset of older", newer))
-	}
-	return Major.wrap(fmt.Sprintf("new interface %s does not implement old", newer))
+
+	return rwrapf(res, "in type %s", older)
 }
 
 func (c *comparer) compareStructs(older, newer *types.Struct) Result {
@@ -109,22 +88,29 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 		newerMap = structMap(newer)
 	)
 
+	var res Result = None
+
 	for i := 0; i < older.NumFields(); i++ {
 		field := older.Field(i)
 		newFieldIndex, ok := newerMap[field.Name()]
 		if !ok {
-			return Major.wrap(fmt.Sprintf("old struct field %s was removed from %s", field.Name(), older))
+			return rwrapf(Major, "old struct field %s was removed from %s", field.Name(), older)
 		}
 		newField := newer.Field(newFieldIndex)
-		if !c.identical(field.Type(), newField.Type()) {
-			return Major.wrap(fmt.Sprintf("struct field %s changed in %s", field.Name(), older))
+
+		if r := c.compareTypes(field.Type(), newField.Type()); r.Code() > res.Code() {
+			res = rwrapf(r, "struct field %s changed in %s", field.Name(), older)
+			if res.Code() == Major {
+				return res
+			}
 		}
+
 		var (
 			tag    = older.Tag(i)
 			newTag = newer.Tag(newFieldIndex)
 		)
-		if res := c.compareStructTags(tag, newTag); res.Code() == Major {
-			return res.wrap(fmt.Sprintf("tag change in field %s of %s", field.Name(), older))
+		if r := c.compareStructTags(tag, newTag); r.Code() == Major {
+			return rwrapf(r, "tag change in field %s of %s", field.Name(), older)
 		}
 	}
 
@@ -132,22 +118,109 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 		field := newer.Field(i)
 		oldFieldIndex, ok := olderMap[field.Name()]
 		if !ok {
-			return Minor.wrap(fmt.Sprintf("struct field %s was added to %s", field.Name(), newer))
+			return rwrapf(Minor, "struct field %s was added to %s", field.Name(), newer)
 		}
 		var (
 			oldTag = older.Tag(oldFieldIndex)
 			tag    = newer.Tag(i)
 		)
 		if res := c.compareStructTags(oldTag, tag); res.Code() == Minor {
-			return res.wrap(fmt.Sprintf("tag change in field %s of %s", field.Name(), older))
+			return rwrapf(res, "tag change in field %s of %s", field.Name(), older)
 		}
 	}
 
 	if !c.identical(older, newer) {
-		return Patchlevel.wrap(fmt.Sprintf("old and new versions of %s are not identical", older))
+		return rwrapf(Patchlevel, "old and new versions of %s are not identical", older)
 	}
 
 	return None
+}
+
+func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
+	var res Result = None
+
+	if c.implements(newer, older) {
+		if !c.implements(older, newer) {
+			res = rwrapf(Minor, "new interface %s is a superset of older", newer)
+		}
+	} else {
+		return rwrapf(Major, "new interface %s does not implement old", newer)
+	}
+
+	if older.IsMethodSet() {
+		if newer.IsMethodSet() {
+			return res
+		}
+		return rwrap(Major, "new interface is a constraint, old one is not")
+	}
+	if newer.IsMethodSet() {
+		return rwrap(Major, "old interface is a constraint, new one is not")
+	}
+
+	return rwrap(Major, "comparison of constraint type sets not yet implemented")
+}
+
+func (c *comparer) compareSignatures(older, newer *types.Signature) Result {
+	var (
+		typeParamsRes = c.compareTypeParamLists(older.TypeParams(), newer.TypeParams())
+		paramsRes     = c.compareTuples(older.Params(), newer.Params(), !older.Variadic() && newer.Variadic())
+		resultsRes    = c.compareTuples(older.Results(), newer.Results(), false)
+	)
+
+	res := rwrapf(typeParamsRes, "in type parameters of %s", older)
+	if paramsRes.Code() > res.Code() {
+		res = rwrapf(paramsRes, "in parameters of %s", older)
+	}
+	if resultsRes.Code() > res.Code() {
+		res = rwrapf(resultsRes, "in results of %s", older)
+	}
+	return res
+}
+
+func (c *comparer) compareTuples(older, newer *types.Tuple, variadicCheck bool) Result {
+	la, lb := older.Len(), newer.Len()
+
+	maybeVariadic := variadicCheck && (la+1 == lb)
+
+	if la != lb && !maybeVariadic {
+		return rwrapf(Major, "%d param(s) to %d", la, lb)
+	}
+
+	var res Result = None
+	for i := 0; i < la; i++ {
+		va, vb := older.At(i), newer.At(i)
+		thisRes := c.compareTypes(va.Type(), vb.Type())
+		if thisRes.Code() == Major {
+			return thisRes
+		}
+		if thisRes.Code() > res.Code() {
+			res = thisRes
+		}
+	}
+
+	if res.Code() < Minor && maybeVariadic {
+		return rwrap(Minor, "added optional parameters")
+	}
+	return res
+}
+
+func (c *comparer) compareTypeParamLists(older, newer *types.TypeParamList) (res Result) {
+	if older.Len() != newer.Len() {
+		return rwrapf(Major, "went from %d type parameters to %d", older.Len(), newer.Len())
+	}
+
+	res = None
+	for i := 0; i < older.Len(); i++ {
+		thisRes := c.compareTypes(older.At(i).Constraint(), newer.At(i).Constraint())
+		if thisRes.Code() > res.Code() {
+			res = thisRes
+			if res.Code() == Major {
+				break
+			}
+		}
+	}
+
+	return res
 }
 
 func (c *comparer) compareStructTags(a, b string) Result {
@@ -161,15 +234,15 @@ func (c *comparer) compareStructTags(a, b string) Result {
 	for k, av := range amap {
 		if bv, ok := bmap[k]; ok {
 			if av != bv {
-				return Major.wrap(fmt.Sprintf(`struct tag changed the value for key "%s" from "%s" to "%s"`, k, av, bv))
+				return rwrapf(Major, `struct tag changed the value for key "%s" from "%s" to "%s"`, k, av, bv)
 			}
 		} else {
-			return Major.wrap(fmt.Sprintf("struct tag %s was removed", k))
+			return rwrapf(Major, "struct tag %s was removed", k)
 		}
 	}
 	for k := range bmap {
 		if _, ok := amap[k]; !ok {
-			return Minor.wrap(fmt.Sprintf("struct tag %s was added", k))
+			return rwrapf(Minor, "struct tag %s was added", k)
 		}
 	}
 	return None
@@ -282,24 +355,6 @@ func (c *comparer) implements(v types.Type, t *types.Interface) bool {
 	}
 
 	return true
-}
-
-func (c *comparer) identicalTuples(a, b *types.Tuple) (identical, added1 bool) {
-	identical, added1 = true, true
-	la, lb := a.Len(), b.Len()
-	if la != lb {
-		if la+1 != lb {
-			return false, false
-		}
-		identical = false
-	}
-	for i := 0; i < la; i++ {
-		va, vb := a.At(i), b.At(i)
-		if !c.identical(va.Type(), vb.Type()) {
-			return false, false
-		}
-	}
-	return identical, added1
 }
 
 func (c *comparer) samePackage(a, b *types.Package) bool {

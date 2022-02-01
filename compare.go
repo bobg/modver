@@ -100,17 +100,17 @@ func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Resul
 				continue
 			}
 			if newPkg == nil {
-				return Major.wrap(fmt.Sprintf("no new version of package %s", pkgPath))
+				return rwrapf(Major, "no new version of package %s", pkgPath)
 			}
 			if newTopObjs == nil {
 				newTopObjs = makeTopObjs(newPkg)
 			}
 			newObj := newTopObjs[id]
 			if newObj == nil {
-				return Major.wrap(fmt.Sprintf("no object %s in new version of package %s", id, pkgPath))
+				return rwrapf(Major, "no object %s in new version of package %s", id, pkgPath)
 			}
 			if res := c.compareTypes(obj.Type(), newObj.Type()); res.Code() == Major {
-				return res.wrap(fmt.Sprintf("checking %s", id))
+				return rwrapf(res, "checking %s", id)
 			}
 		}
 	}
@@ -136,17 +136,17 @@ func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Resul
 				continue
 			}
 			if oldPkg == nil {
-				return Minor.wrap(fmt.Sprintf("no old version of package %s", pkgPath))
+				return rwrapf(Minor, "no old version of package %s", pkgPath)
 			}
 			if oldTopObjs == nil {
 				oldTopObjs = makeTopObjs(oldPkg)
 			}
 			oldObj := oldTopObjs[id]
 			if oldObj == nil {
-				return Minor.wrap(fmt.Sprintf("no object %s in old version of package %s", id, pkgPath))
+				return rwrapf(Minor, "no object %s in old version of package %s", id, pkgPath)
 			}
 			if res := c.compareTypes(oldObj.Type(), obj.Type()); res.Code() >= Minor {
-				return res.sub(Minor).wrap(fmt.Sprintf("checking %s", id))
+				return rwrapf(res.sub(Minor), "checking %s", id)
 			}
 		}
 	}
@@ -161,16 +161,16 @@ func (c *comparer) comparePatchlevel(older, newer map[string]*packages.Package) 
 			newPkg  = newer[pkgPath]
 		)
 		if newPkg == nil {
-			return Patchlevel.wrap(fmt.Sprintf("no new version of package %s", pkgPath))
+			return rwrapf(Patchlevel, "no new version of package %s", pkgPath)
 		}
 		newTopObjs := makeTopObjs(newPkg)
 		for id, obj := range topObjs {
 			newObj := newTopObjs[id]
 			if newObj == nil {
-				return Patchlevel.wrap(fmt.Sprintf("no object %s in new version of package %s", id, pkgPath))
+				return rwrapf(Patchlevel, "no object %s in new version of package %s", id, pkgPath)
 			}
 			if res := c.compareTypes(obj.Type(), newObj.Type()); res.Code() != None {
-				return res.sub(Patchlevel).wrap(fmt.Sprintf("checking %s", id))
+				return rwrapf(res.sub(Patchlevel), "checking %s", id)
 			}
 		}
 	}

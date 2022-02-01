@@ -7,7 +7,6 @@ type Result interface {
 	Code() ResultCode
 	String() string
 
-	wrap(string) Result
 	sub(code ResultCode) Result
 }
 
@@ -25,7 +24,6 @@ const (
 // Code implements Result.Code.
 func (r ResultCode) Code() ResultCode           { return r }
 func (r ResultCode) sub(code ResultCode) Result { return code }
-func (r ResultCode) wrap(why string) Result     { return wrapped{r: r, why: why} }
 
 // String implements Result.String.
 func (r ResultCode) String() string {
@@ -51,11 +49,19 @@ type wrapped struct {
 // Code implements Result.Code.
 func (w wrapped) Code() ResultCode           { return w.r.Code() }
 func (w wrapped) sub(code ResultCode) Result { return wrapped{r: w.r.sub(code), why: w.why} }
-func (w wrapped) wrap(why string) Result {
-	return wrapped{r: w.Code(), why: fmt.Sprintf("%s: %s", why, w.why)}
-}
 
 // String implements Result.String.
 func (w wrapped) String() string {
 	return fmt.Sprintf("%s: %s", w.r, w.why)
+}
+
+func rwrap(r Result, s string) Result {
+	return rwrapf(r, "%s", s)
+}
+
+func rwrapf(r Result, format string, args ...any) Result {
+	if r.Code() == None {
+		return r
+	}
+	return wrapped{r: r, why: fmt.Sprintf(format, args...)}
 }
