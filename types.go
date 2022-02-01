@@ -160,6 +160,16 @@ func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
 	olderTerms, newerTerms := termsOf(older), termsOf(newer)
 	if c.termListSubset(olderTerms, newerTerms) {
 		if c.termListSubset(newerTerms, olderTerms) {
+			// Term lists can be equal and still differ in comparability.
+			if older.IsComparable() {
+				if newer.IsComparable() {
+					return res
+				}
+				return rwrapf(Minor, "older constraint type union is comparable, newer is not (constraint has relaxed)")
+			}
+			if newer.IsComparable() {
+				return rwrapf(Major, "newer constraint type union is comparable, older is not (constraint has tightened)")
+			}
 			return res
 		}
 		return rwrapf(Minor, "older constraint type union is a subset of newer (constraint has relaxed)")
