@@ -42,10 +42,10 @@ func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
 		if newer, ok := newer.(*types.Named); ok {
 			return c.compareNamed(older, newer)
 		}
-		// This is probably impossible.
-		// How can newer not be *types.Named if older is,
-		// and newer has the same name?
-		return rwrapf(Major, "%s went from defined type to non-defined type", older)
+		if older.TypeParams().Len() > 0 {
+			return rwrapf(Major, "%s went from generic named type to unnamed %s", older, newer)
+		}
+		return c.compareTypes(older.Underlying(), newer)
 
 	case *types.Struct:
 		if newer, ok := newer.(*types.Struct); ok {
@@ -147,17 +147,42 @@ func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
 		return rwrapf(Major, "new interface %s does not implement old", newer)
 	}
 
-	if older.IsMethodSet() {
-		if newer.IsMethodSet() {
+	if isNonEmptyMethodSet(older) {
+		if isNonEmptyMethodSet(newer) {
 			return res
 		}
 		return rwrap(Major, "new interface is a constraint, old one is not")
 	}
-	if newer.IsMethodSet() {
+	if isNonEmptyMethodSet(newer) {
 		return rwrap(Major, "old interface is a constraint, new one is not")
 	}
 
-	return rwrap(Major, "comparison of constraint type sets not yet implemented")
+	olderTerms, newerTerms := termsOf(older), termsOf(newer)
+	if c.termListSubset(olderTerms, newerTerms) {
+		if c.termListSubset(newerTerms, olderTerms) {
+			return res
+		}
+		return rwrapf(Minor, "older constraint type union is a subset of newer (constraint has relaxed)")
+	}
+	if c.termListSubset(newerTerms, olderTerms) {
+		return rwrapf(Major, "newer constraint type union is a subset of older (constraint has tightened)")
+	}
+	return rwrapf(Major, "constraint type unions differ")
+}
+
+func termsOf(intf *types.Interface) []*types.Term {
+	var res []*types.Term
+	for i := 0; i < intf.NumEmbeddeds(); i++ {
+		typ := intf.EmbeddedType(i)
+		u, ok := typ.(*types.Union) // xxx also interfaces with unions, and anything with that underlying type
+		if !ok {
+			continue
+		}
+		for j := 0; j < u.Len(); j++ {
+			res = append(res, u.Term(j))
+		}
+	}
+	return res
 }
 
 func (c *comparer) compareSignatures(older, newer *types.Signature) Result {
@@ -462,4 +487,8 @@ func tagMap(inp string) map[string]string {
 		res[match[1]] = match[2]
 	}
 	return res
+}
+
+func isNonEmptyMethodSet(intf *types.Interface) bool {
+	return intf.IsMethodSet() && intf.NumMethods() > 0
 }
