@@ -141,7 +141,7 @@ func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
 
 	if c.implements(newer, older) {
 		if !c.implements(older, newer) {
-			res = rwrapf(Minor, "new interface %s is a superset of older", newer)
+			res = rwrapf(Major, "new interface %s is a superset of older", newer)
 		}
 	} else {
 		return rwrapf(Major, "new interface %s does not implement old", newer)
