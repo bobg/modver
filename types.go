@@ -180,18 +180,39 @@ func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
 	return rwrapf(Major, "constraint type unions differ")
 }
 
-func termsOf(intf *types.Interface) []*types.Term {
+// This takes an interface and flattens its typelists by traversing embeds.
+func termsOf(typ types.Type) []*types.Term {
 	var res []*types.Term
-	for i := 0; i < intf.NumEmbeddeds(); i++ {
-		typ := intf.EmbeddedType(i)
-		u, ok := typ.(*types.Union) // xxx also interfaces with unions, and anything with that underlying type
-		if !ok {
-			continue
+
+	switch typ := typ.(type) {
+	case *types.Interface:
+		for i := 0; i < typ.NumEmbeddeds(); i++ {
+			emb := typ.EmbeddedType(i)
+			res = append(res, termsOf(emb)...)
 		}
-		for j := 0; j < u.Len(); j++ {
-			res = append(res, u.Term(j))
+
+	case *types.Named:
+		res = append(res, termsOf(typ.Underlying())...)
+
+	case *types.Union:
+		for i := 0; i < typ.Len(); i++ {
+			term := typ.Term(i)
+			sub := termsOf(term.Type())
+
+			// TODO: Check this is the right logic for distributing term.Tilde() over the members of sub.
+			if term.Tilde() {
+				for _, s := range sub {
+					res = append(res, types.NewTerm(true, s.Type()))
+				}
+			} else {
+				res = append(res, sub...)
+			}
 		}
+
+	default:
+		return []*types.Term{types.NewTerm(false, typ)}
 	}
+
 	return res
 }
 
