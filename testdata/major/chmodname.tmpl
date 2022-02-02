@@ -1,0 +1,23 @@
+// -*- mode: go -*-
+
+//// {{ define "older/go.mod" }}
+//// module chmodname
+//// go 1.17
+//// {{ end }}
+
+//// {{ define "newer/go.mod" }}
+//// module newname
+//// go 1.17
+//// {{ end }}
+
+//// {{ define "older" }}
+package chmodname
+
+const X = 7
+//// {{ end }}
+
+//// {{ define "newer" }}
+package chmodname
+
+const X = 8
+//// {{ end }}

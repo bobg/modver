@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"golang.org/x/mod/semver"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -89,9 +90,20 @@ func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Resul
 			continue
 		}
 
+		newPkg := newer[pkgPath]
+		if newPkg != nil {
+			if oldMod, newMod := pkg.Module, newPkg.Module; oldMod != nil && newMod != nil {
+				if oldMod.Path != newMod.Path {
+					return rwrapf(Major, "module name changed from %s to %s", oldMod.Path, newMod.Path)
+				}
+				if cmp := semver.Compare("v"+oldMod.GoVersion, "v"+newMod.GoVersion); cmp < 0 {
+					return rwrapf(Major, "minimum Go version changed from %s to %s", oldMod.GoVersion, newMod.GoVersion)
+				}
+			}
+		}
+
 		var (
 			topObjs    = makeTopObjs(pkg)
-			newPkg     = newer[pkgPath]
 			newTopObjs map[string]types.Object
 		)
 
@@ -182,7 +194,7 @@ func (c *comparer) comparePatchlevel(older, newer map[string]*packages.Package) 
 // and calls Compare on the results.
 func CompareDirs(older, newer string) (Result, error) {
 	cfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo,
+		Mode: packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedModule,
 		Dir:  older,
 	}
 	olders, err := packages.Load(cfg, "./...")

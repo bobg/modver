@@ -77,7 +77,7 @@ func runtest(t *testing.T, typ string, want ResultCode) {
 					continue
 				}
 
-				sawGomod = sawGomod || (tmpl.Name() == "go.mod")
+				sawGomod = sawGomod || (filepath.Base(tmpl.Name()) == "go.mod")
 
 				parts := strings.Split(tmpl.Name(), "/")
 				if !strings.Contains(parts[len(parts)-1], ".") {
