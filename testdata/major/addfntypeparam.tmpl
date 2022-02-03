@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package addfntypeparam
+
+func F[X any]() {}
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package addfntypeparam
+
+func F[X, Y any]() {}
+
+//// {{ end }}

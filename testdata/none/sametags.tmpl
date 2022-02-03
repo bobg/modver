@@ -1,0 +1,21 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package sametags
+
+type X struct {
+	Y int `tag:"foo"`
+}
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package sametags
+
+type X struct {
+	Y int `tag:"foo"`
+}
+
+//// {{ end }}

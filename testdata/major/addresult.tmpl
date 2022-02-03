@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package addresult
+
+func F() {}
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package addresult
+
+func F() int { return 0 }
+
+//// {{ end }}

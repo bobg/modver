@@ -1,0 +1,20 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+package fromcomparable
+
+type X interface {
+	comparable
+	[]byte
+	Y()
+}
+//// {{ end }}
+
+//// {{ define "newer" }}
+package fromcomparable
+
+type X interface {
+	[]byte
+	Y()
+}
+//// {{ end }}
