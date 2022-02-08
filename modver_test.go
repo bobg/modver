@@ -14,20 +14,23 @@ import (
 	"text/template"
 )
 
-func TestMajor(t *testing.T) {
-	runtest(t, "major", Major)
-}
+func TestCompare(t *testing.T) {
+	cases := []struct {
+		dir  string
+		want ResultCode
+	}{{
+		dir: "major", want: Major,
+	}, {
+		dir: "minor", want: Minor,
+	}, {
+		dir: "patchlevel", want: Patchlevel,
+	}, {
+		dir: "none", want: None,
+	}}
 
-func TestMinor(t *testing.T) {
-	runtest(t, "minor", Minor)
-}
-
-func TestPatchlevel(t *testing.T) {
-	runtest(t, "patchlevel", Patchlevel)
-}
-
-func TestNone(t *testing.T) {
-	runtest(t, "none", None)
+	for _, c := range cases {
+		runtest(t, c.dir, c.want)
+	}
 }
 
 func runtest(t *testing.T, typ string, want ResultCode) {
