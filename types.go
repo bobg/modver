@@ -158,18 +158,44 @@ func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
 	}
 
 	olderTerms, newerTerms := termsOf(older), termsOf(newer)
-	if c.termListSubset(olderTerms, newerTerms) {
-		if c.termListSubset(newerTerms, olderTerms) {
-			// Term lists can be equal and still differ in comparability.
+
+	if len(olderTerms) == 0 {
+		if len(newerTerms) == 0 {
 			if older.IsComparable() {
 				if newer.IsComparable() {
 					return res
 				}
-				return rwrapf(Minor, "older constraint type union is comparable, newer is not (constraint has relaxed)")
+				return rwrap(Minor, "constraint went from comparable to any")
 			}
 			if newer.IsComparable() {
-				return rwrapf(Major, "newer constraint type union is comparable, older is not (constraint has tightened)")
+				return rwrap(Major, "constraint went from any to comparable")
 			}
+		}
+		if older.IsComparable() {
+			if newer.IsComparable() {
+				return rwrap(Major, "constraint went from all to some comparable types")
+			}
+			return rwrap(Major, "constraint went from comparable to (some) non-comparable types")
+		}
+		if newer.IsComparable() {
+			return rwrap(Major, "constraint went from any to (some) comparable types")
+		}
+		return res
+	}
+	if len(newerTerms) == 0 {
+		if older.IsComparable() {
+			if newer.IsComparable() {
+				return rwrap(Minor, "constraint went from some to all comparable types")
+			}
+			return rwrap(Minor, "constraint went from some comparable types to any")
+		}
+		if newer.IsComparable() {
+			return rwrap(Major, "constraint went from (some) non-comparable types to comparable")
+		}
+		return rwrap(Major, "new constraint removes type union")
+	}
+	if c.termListSubset(olderTerms, newerTerms) {
+		if c.termListSubset(newerTerms, olderTerms) {
 			return res
 		}
 		return rwrapf(Minor, "older constraint type union is a subset of newer (constraint has relaxed)")
@@ -260,12 +286,13 @@ func (c *comparer) compareTuples(older, newer *types.Tuple, variadicCheck bool) 
 	return res
 }
 
-func (c *comparer) compareTypeParamLists(older, newer *types.TypeParamList) (res Result) {
+func (c *comparer) compareTypeParamLists(older, newer *types.TypeParamList) Result {
 	if older.Len() != newer.Len() {
 		return rwrapf(Major, "went from %d type parameters to %d", older.Len(), newer.Len())
 	}
 
-	res = None
+	var res Result = None
+
 	for i := 0; i < older.Len(); i++ {
 		thisRes := c.compareTypes(older.At(i).Constraint(), newer.At(i).Constraint())
 		if thisRes.Code() > res.Code() {
