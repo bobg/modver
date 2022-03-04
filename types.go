@@ -288,7 +288,7 @@ func (c *comparer) compareTuples(older, newer *types.Tuple, variadicCheck bool) 
 
 func (c *comparer) compareTypeParamLists(older, newer *types.TypeParamList) Result {
 	if older.Len() != newer.Len() {
-		return rwrapf(Major, "went from %d type parameters to %d", older.Len(), newer.Len())
+		return rwrapf(Major, "went from %d type parameter(s) to %d", older.Len(), newer.Len())
 	}
 
 	var res Result = None

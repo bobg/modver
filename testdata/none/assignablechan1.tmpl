@@ -1,0 +1,21 @@
+//// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package assignablechan1
+
+type X chan int
+
+var Y chan int
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package assignablechan1
+
+type X chan int
+
+var Y X
+
+//// {{ end }}

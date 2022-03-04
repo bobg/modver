@@ -1,0 +1,16 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+package anytosomecomparable
+
+type X any
+//// {{ end }}
+
+//// {{ define "newer" }}
+package anytosomecomparable
+
+type X interface {
+	comparable
+	int
+}
+//// {{ end }}
