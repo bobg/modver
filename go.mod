@@ -1,4 +1,4 @@
-module github.com/bobg/modver
+module github.com/bobg/modver/v2
 
 go 1.18
 

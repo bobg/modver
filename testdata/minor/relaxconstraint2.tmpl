@@ -3,9 +3,7 @@
 // {{ define "older" }}
 package relaxconstraint2
 
-import "constraints"
-
-type T[X constraints.Integer] struct {
+type T[X ~int] struct {
 	Val X
 }
 // {{ end }}
@@ -13,9 +11,7 @@ type T[X constraints.Integer] struct {
 // {{ define "newer" }}
 package relaxconstraint2
 
-import "constraints"
-
-type T[X constraints.Ordered] struct {
+type T[X ~int | ~string] struct {
 	Val X
 }
 // {{ end }}
