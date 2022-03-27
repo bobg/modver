@@ -1,0 +1,19 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+package tocomparable
+
+type X interface {
+	[]byte
+	Y()
+}
+//// {{ end }}
+
+//// {{ define "newer" }}
+package tocomparable
+
+type X interface {
+	comparable
+	Y()
+}
+//// {{ end }}

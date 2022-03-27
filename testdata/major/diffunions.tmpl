@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+package diffunions
+
+type X interface {
+	int | uint
+}
+//// {{ end }}
+
+//// {{ define "newer" }}
+package diffunions
+
+type X interface {
+	string | []byte
+}
+//// {{ end }}

@@ -52,7 +52,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 
-	"github.com/bobg/modver"
+	"github.com/bobg/modver/v2"
 )
 
 const errorStatus = 4

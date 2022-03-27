@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+// {{ define "older" }}
+package relaxconstraint2
+
+type T[X ~int] struct {
+	Val X
+}
+// {{ end }}
+
+// {{ define "newer" }}
+package relaxconstraint2
+
+type T[X ~int | ~string] struct {
+	Val X
+}
+// {{ end }}

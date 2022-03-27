@@ -1,0 +1,20 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package rmunion
+
+type X interface {
+	[]byte
+}
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package rmunion
+
+type X interface {
+}
+
+//// {{ end }}

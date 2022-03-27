@@ -1,17 +1,17 @@
 // -*- mode: go -*-
 
-{{ define "older" }}
+// {{ define "older" }}
 package rmtag
 
 type X struct {
 	A int `foo:"bar" baz:"quux"`
 }
-{{ end }}
+// {{ end }}
 
-{{ define "newer" }}
+// {{ define "newer" }}
 package rmtag
 
 type X struct {
 	A int `foo:"bar"`
 }
-{{ end }}
+// {{ end }}

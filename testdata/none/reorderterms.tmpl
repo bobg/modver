@@ -1,0 +1,21 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package reorderterms
+
+type X interface {
+	int | string
+}
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package reorderterms
+
+type X interface {
+	string | int
+}
+
+//// {{ end }}

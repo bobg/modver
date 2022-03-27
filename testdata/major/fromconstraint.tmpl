@@ -1,0 +1,18 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+package fromconstraint
+
+type X interface {
+	int
+	Y()
+}
+//// {{ end }}
+
+//// {{ define "newer" }}
+package fromconstraint
+
+type X interface {
+	Y()
+}
+//// {{ end }}

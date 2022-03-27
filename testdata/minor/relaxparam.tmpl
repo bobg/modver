@@ -1,0 +1,24 @@
+// -*- mode: go
+
+//// {{ define "older" }}
+
+package relaxparam
+
+type a struct {
+	X int
+}
+
+func F(a) {}
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package relaxparam
+
+type a struct {
+	X, Y int
+}
+func F(a) {}
+
+//// {{ end }}

@@ -1,0 +1,21 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package sameintf
+
+type X interface {
+	comparable
+}
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package sameintf
+
+type X interface {
+	comparable
+}
+
+//// {{ end }}

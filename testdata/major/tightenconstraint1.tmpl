@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+// {{ define "older" }}
+package tightenconstraint
+
+type T[X any] struct {
+	Val X
+}
+// {{ end }}
+
+// {{ define "newer" }}
+package tightenconstraint
+
+type T[X comparable] struct {
+	Val X
+}
+// {{ end }}

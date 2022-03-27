@@ -1,0 +1,23 @@
+// -*- mode: go -*-
+
+//// {{ define "older/go.mod" }}
+//// module bumpgoversion
+//// go 1.16
+//// {{ end }}
+
+//// {{ define "newer/go.mod" }}
+//// module bumpgoversion
+//// go 1.17
+//// {{ end }}
+
+//// {{ define "older" }}
+package bumpgoversion
+
+const X = 7
+//// {{ end }}
+
+//// {{ define "newer" }}
+package bumpgoversion
+
+const X = 8
+//// {{ end }}

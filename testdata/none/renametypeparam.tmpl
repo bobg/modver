@@ -1,0 +1,17 @@
+// -*- mode: go -*-
+
+// {{ define "older" }}
+package renametypeparam
+
+type T[X any] struct {
+	Val X
+}
+// {{ end }}
+
+// {{ define "newer" }}
+package renametypeparam
+
+type T[Y any] struct {
+	Val Y
+}
+// {{ end }}

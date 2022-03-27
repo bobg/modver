@@ -3,20 +3,7 @@ package modver
 import "go/types"
 
 // https://golang.org/ref/spec#Type_identity
-func (c *comparer) identical(a, b types.Type) (res bool) {
-	if res, ok := c.cache[typePair{a, b}]; ok {
-		return res
-	}
-	if res, ok := c.cache[typePair{b, a}]; ok {
-		return res
-	}
-	doCache := true
-	defer func() {
-		if doCache {
-			c.cache[typePair{a, b}] = res
-		}
-	}()
-
+func (c *comparer) identical(a, b types.Type) bool {
 	if types.Identical(a, b) {
 		return true
 	}
@@ -25,7 +12,6 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 	// e.g. when checking type Node struct { children []*Node }
 	for _, pair := range c.stack {
 		if a == pair.a && b == pair.b {
-			doCache = false
 			return true
 		}
 	}
@@ -35,6 +21,9 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 	if na, ok := a.(*types.Named); ok {
 		if nb, ok := b.(*types.Named); ok {
 			if na.Obj().Name() != nb.Obj().Name() {
+				return false
+			}
+			if !c.identicalTypeParamLists(na.TypeParams(), nb.TypeParams()) {
 				return false
 			}
 			// Can't return true yet just because the types have equal names.
@@ -51,6 +40,22 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 	}
 
 	return c.underlyingIdentical(ua, ub)
+}
+
+func (c *comparer) identicalTypeParamLists(a, b *types.TypeParamList) bool {
+	if a.Len() != b.Len() {
+		return false
+	}
+	for i := 0; i < a.Len(); i++ {
+		if !c.identicalConstraint(a.At(i).Constraint(), b.At(i).Constraint()) {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *comparer) identicalConstraint(a, b types.Type) bool {
+	return c.underlyingIdentical(a, b)
 }
 
 func (c *comparer) underlyingIdentical(ua, ub types.Type) bool {
@@ -86,8 +91,7 @@ func (c *comparer) underlyingIdentical(ua, ub types.Type) bool {
 		// and either both functions are variadic or neither is.
 		// Parameter and result names are not required to match.
 		if ub, ok := ub.(*types.Signature); ok {
-			identical, _ := c.identicalSigs(ua, ub)
-			return identical
+			return c.identicalSigs(ua, ub)
 		}
 		return false
 
@@ -139,29 +143,21 @@ func (c *comparer) identicalStructs(ua *types.Struct, b types.Type) bool {
 	return true
 }
 
-func (c *comparer) identicalSigs(older, newer *types.Signature) (identical, addedOptionalParams bool) {
-	identical, addedOptionalParams = true, true
-	if older.Variadic() {
-		if !newer.Variadic() {
-			return false, false
-		}
-		addedOptionalParams = false
-	} else if newer.Variadic() {
-		identical = false
-	}
-
-	resultsIdentical, _ := c.identicalTuples(older.Results(), newer.Results())
-	if !resultsIdentical {
-		return false, false
-	}
-
-	paramsIdentical, addedParam := c.identicalTuples(older.Params(), newer.Params())
-	return identical && paramsIdentical, addedOptionalParams && addedParam
+func (c *comparer) identicalSigs(older, newer *types.Signature) bool {
+	return c.compareSignatures(older, newer).Code() == None
 }
 
 func (c *comparer) identicalInterfaces(ua *types.Interface, b types.Type) bool {
 	ub, ok := b.(*types.Interface)
 	if !ok {
+		return false
+	}
+
+	if ua.IsMethodSet() != ub.IsMethodSet() {
+		return false
+	}
+
+	if ua.IsComparable() != ub.IsComparable() {
 		return false
 	}
 
@@ -187,7 +183,12 @@ func (c *comparer) identicalInterfaces(ua *types.Interface, b types.Type) bool {
 			return false
 		}
 	}
-	return true
+
+	if ua.IsMethodSet() {
+		return true
+	}
+
+	return types.Implements(ua, ub) && types.Implements(ub, ua)
 }
 
 func (c *comparer) identicalMaps(ua *types.Map, b types.Type) bool {
