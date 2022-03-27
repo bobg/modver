@@ -17,7 +17,7 @@ or the patchlevel.
 
 ## Installation and usage
 
-Install the `modver` command using Go 1.16 or later like this:
+Install the `modver` command like this:
 
 ```sh
 go install github.com/bobg/modver/cmd/modver@latest
