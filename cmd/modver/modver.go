@@ -58,13 +58,13 @@ import (
 const errorStatus = 4
 
 func main() {
-	gitRepo, quiet, v1, v2, versions, err := parseArgs()
+	gitRepo, nativeGit, quiet, v1, v2, versions, err := parseArgs()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing args: %s\n", err)
 		os.Exit(errorStatus)
 	}
 
-	res, err := doCompare(gitRepo, v1, v2, versions)
+	res, err := doCompare(gitRepo, v1, v2, versions, nativeGit)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error in comparing: %s\n", err)
 		os.Exit(errorStatus)
@@ -73,8 +73,9 @@ func main() {
 	doShowResultExit(res, quiet, v1, v2, versions)
 }
 
-func parseArgs() (gitRepo string, quiet bool, v1, v2 string, versions bool, err error) {
+func parseArgs() (gitRepo string, nativeGit, quiet bool, v1, v2 string, versions bool, err error) {
 	flag.StringVar(&gitRepo, "git", "", "Git repo URL")
+	flag.BoolVar(&nativeGit, "native-git", false, "tells modver to use native git client instead of go-git library (note: only works with repos on the local file system)")
 	flag.BoolVar(&quiet, "q", false, "quiet mode: prints no output, exits with status 0, 1, 2, 3, or 4 to mean None, Patchlevel, Minor, Major, or error")
 	flag.StringVar(&v1, "v1", "", "version string of older version; with -v2 changes output to OK (exit status 0) for adequate version-number change, ERR (exit status 1) for inadequate")
 	flag.StringVar(&v2, "v2", "", "version string of newer version")
@@ -101,7 +102,7 @@ func parseArgs() (gitRepo string, quiet bool, v1, v2 string, versions bool, err 
 	return
 }
 
-func doCompare(gitRepo, v1, v2 string, versions bool) (modver.Result, error) {
+func doCompare(gitRepo, v1, v2 string, versions, nativeGit bool) (modver.Result, error) {
 	if gitRepo != "" {
 		if flag.NArg() != 2 {
 			return nil, fmt.Errorf("usage: %s -git [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV", os.Args[0])
@@ -111,7 +112,7 @@ func doCompare(gitRepo, v1, v2 string, versions bool) (modver.Result, error) {
 		if versions {
 			callback = getTags(&v1, &v2, flag.Arg(0), flag.Arg(1))
 		}
-		return modver.CompareGitWith(context.Background(), gitRepo, flag.Arg(0), flag.Arg(1), callback)
+		return modver.CompareGitWith(context.Background(), gitRepo, nativeGit, flag.Arg(0), flag.Arg(1), callback)
 	}
 	if flag.NArg() != 2 {
 		return nil, fmt.Errorf("usage: %s [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR", os.Args[0])
