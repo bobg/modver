@@ -113,8 +113,7 @@ func doCompare(gitRepo, v1, v2 string, versions, nativeGit bool) (modver.Result,
 		if versions {
 			callback = getTags(&v1, &v2, flag.Arg(0), flag.Arg(1))
 		}
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, shared.NativeGitKey, nativeGit)
+		ctx := context.WithValue(context.Background(), shared.NativeGitKey, nativeGit)
 		return modver.CompareGitWith(ctx, gitRepo, flag.Arg(0), flag.Arg(1), callback)
 	}
 	if flag.NArg() != 2 {
