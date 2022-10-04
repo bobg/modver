@@ -45,6 +45,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/bobg/modver/v2/shared"
 	"golang.org/x/mod/semver"
 
 	"github.com/go-git/go-git/v5"
@@ -112,7 +113,9 @@ func doCompare(gitRepo, v1, v2 string, versions, nativeGit bool) (modver.Result,
 		if versions {
 			callback = getTags(&v1, &v2, flag.Arg(0), flag.Arg(1))
 		}
-		return modver.CompareGitWith(context.Background(), gitRepo, nativeGit, flag.Arg(0), flag.Arg(1), callback)
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, shared.NativeGitKey, nativeGit)
+		return modver.CompareGitWith(ctx, gitRepo, flag.Arg(0), flag.Arg(1), callback)
 	}
 	if flag.NArg() != 2 {
 		return nil, fmt.Errorf("usage: %s [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR", os.Args[0])

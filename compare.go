@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bobg/modver/v2/shared"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
 	"golang.org/x/tools/go/packages"
 )
@@ -233,8 +233,8 @@ func (p errpkg) Error() string {
 }
 
 // CompareGit compares the Go packages in two revisions of a Git repo at the given URL.
-func CompareGit(ctx context.Context, repoURL string, local bool, olderRev, newerRev string) (Result, error) {
-	return CompareGitWith(ctx, repoURL, local, olderRev, newerRev, CompareDirs)
+func CompareGit(ctx context.Context, repoURL string, olderRev, newerRev string) (Result, error) {
+	return CompareGitWith(ctx, repoURL, olderRev, newerRev, CompareDirs)
 }
 
 // CompareGitWith compares the Go packages in two revisions of a Git repo at the given URL.
@@ -246,7 +246,7 @@ func CompareGit(ctx context.Context, repoURL string, local bool, olderRev, newer
 // and one checked out at the newer revision.
 //
 // Note that CompareGit(...) is simply CompareGitWith(..., CompareDirs).
-func CompareGitWith(ctx context.Context, repoURL string, nativeGit bool, olderRev, newerRev string, f func(older, newer string) (Result, error)) (Result, error) {
+func CompareGitWith(ctx context.Context, repoURL, olderRev, newerRev string, f func(older, newer string) (Result, error)) (Result, error) {
 	parent, err := os.MkdirTemp("", "modver")
 	if err != nil {
 		return None, fmt.Errorf("creating tmpdir: %w", err)
@@ -256,7 +256,7 @@ func CompareGitWith(ctx context.Context, repoURL string, nativeGit bool, olderRe
 	olderDir := filepath.Join(parent, "older")
 	newerDir := filepath.Join(parent, "newer")
 
-	if nativeGit {
+	if useGitNative(ctx) {
 		err = gitNativeSetup(ctx, repoURL, olderDir, olderRev)
 		if err != nil {
 			return None, fmt.Errorf("setting up older clone (git native): %w", err)
@@ -321,7 +321,16 @@ func gitNativeSetup(ctx context.Context, repoURL, dir, rev string) error {
 	cmd = exec.CommandContext(ctx, "git", "checkout", rev)
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
-		return errors.Wrapf(err, "in git checkout %s", rev)
+		return fmt.Errorf("in native git checkout %s: %w", rev, err)
 	}
 	return nil
+}
+
+func useGitNative(ctx context.Context) bool {
+	val := ctx.Value(shared.NativeGitKey)
+	if v, ok := val.(bool); ok {
+		return v
+	} else {
+		return false
+	}
 }
