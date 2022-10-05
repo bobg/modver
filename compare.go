@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bobg/modver/v2/shared"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"golang.org/x/mod/semver"
@@ -275,14 +274,15 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
 
-	if useGitNative(ctx) {
-		cmd := exec.CommandContext(ctx, "git", "clone", repoURL, dir)
+	gitPath := GetGit(ctx)
+	if gitPath != "" {
+		cmd := exec.CommandContext(ctx, gitPath, "clone", repoURL, dir)
 		err = cmd.Run()
 		if err != nil {
 			return fmt.Errorf("native git cloning %s into %s: %w", repoURL, dir, err)
 		}
 
-		cmd = exec.CommandContext(ctx, "git", "checkout", rev)
+		cmd = exec.CommandContext(ctx, gitPath, "checkout", rev)
 		cmd.Dir = dir
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("in native git checkout %s: %w", rev, err)
@@ -308,13 +308,4 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 	}
 
 	return nil
-}
-
-func useGitNative(ctx context.Context) bool {
-	val := ctx.Value(shared.NativeGitKey)
-	if v, ok := val.(bool); ok {
-		return v
-	} else {
-		return false
-	}
 }
