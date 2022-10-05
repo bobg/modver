@@ -233,7 +233,7 @@ func (p errpkg) Error() string {
 }
 
 // CompareGit compares the Go packages in two revisions of a Git repo at the given URL.
-func CompareGit(ctx context.Context, repoURL string, olderRev, newerRev string) (Result, error) {
+func CompareGit(ctx context.Context, repoURL, olderRev, newerRev string) (Result, error) {
 	return CompareGitWith(ctx, repoURL, olderRev, newerRev, CompareDirs)
 }
 
@@ -256,26 +256,14 @@ func CompareGitWith(ctx context.Context, repoURL, olderRev, newerRev string, f f
 	olderDir := filepath.Join(parent, "older")
 	newerDir := filepath.Join(parent, "newer")
 
-	if useGitNative(ctx) {
-		err = gitNativeSetup(ctx, repoURL, olderDir, olderRev)
-		if err != nil {
-			return None, fmt.Errorf("setting up older clone (git native): %w", err)
-		}
+	err = gitSetup(ctx, repoURL, olderDir, olderRev)
+	if err != nil {
+		return None, fmt.Errorf("setting up older clone: %w", err)
+	}
 
-		err = gitNativeSetup(ctx, repoURL, newerDir, newerRev)
-		if err != nil {
-			return None, fmt.Errorf("setting up newer clone (git native): %w", err)
-		}
-	} else {
-		err = gitSetup(ctx, repoURL, olderDir, olderRev)
-		if err != nil {
-			return None, fmt.Errorf("setting up older clone: %w", err)
-		}
-
-		err = gitSetup(ctx, repoURL, newerDir, newerRev)
-		if err != nil {
-			return None, fmt.Errorf("setting up newer clone: %w", err)
-		}
+	err = gitSetup(ctx, repoURL, newerDir, newerRev)
+	if err != nil {
+		return None, fmt.Errorf("setting up newer clone: %w", err)
 	}
 
 	return f(olderDir, newerDir)
@@ -286,43 +274,39 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 	if err != nil {
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
-	cloneOpts := &git.CloneOptions{URL: repoURL, NoCheckout: true}
-	repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
-	if err != nil {
-		return fmt.Errorf("cloning %s into %s: %w", repoURL, dir, err)
-	}
-	worktree, err := repo.Worktree()
-	if err != nil {
-		return fmt.Errorf("getting worktree from %s: %w", dir, err)
-	}
-	hash, err := repo.ResolveRevision(plumbing.Revision(rev))
-	if err != nil {
-		return fmt.Errorf(`resolving revision "%s": %w`, rev, err)
-	}
-	err = worktree.Checkout(&git.CheckoutOptions{Hash: *hash})
-	if err != nil {
-		return fmt.Errorf(`checking out "%s" in %s: %w`, rev, dir, err)
-	}
-	return nil
-}
 
-func gitNativeSetup(ctx context.Context, repoURL, dir, rev string) error {
-	err := os.Mkdir(dir, 0755)
-	if err != nil {
-		return fmt.Errorf("creating %s: %w", dir, err)
+	if useGitNative(ctx) {
+		cmd := exec.CommandContext(ctx, "git", "clone", repoURL, dir)
+		err = cmd.Run()
+		if err != nil {
+			return fmt.Errorf("native git cloning %s into %s: %w", repoURL, dir, err)
+		}
+
+		cmd = exec.CommandContext(ctx, "git", "checkout", rev)
+		cmd.Dir = dir
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("in native git checkout %s: %w", rev, err)
+		}
+	} else {
+		cloneOpts := &git.CloneOptions{URL: repoURL, NoCheckout: true}
+		repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
+		if err != nil {
+			return fmt.Errorf("cloning %s into %s: %w", repoURL, dir, err)
+		}
+		worktree, err := repo.Worktree()
+		if err != nil {
+			return fmt.Errorf("getting worktree from %s: %w", dir, err)
+		}
+		hash, err := repo.ResolveRevision(plumbing.Revision(rev))
+		if err != nil {
+			return fmt.Errorf(`resolving revision "%s": %w`, rev, err)
+		}
+		err = worktree.Checkout(&git.CheckoutOptions{Hash: *hash})
+		if err != nil {
+			return fmt.Errorf(`checking out "%s" in %s: %w`, rev, dir, err)
+		}
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "clone", repoURL, dir)
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("native git cloning %s into %s: %w", repoURL, dir, err)
-	}
-
-	cmd = exec.CommandContext(ctx, "git", "checkout", rev)
-	cmd.Dir = dir
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("in native git checkout %s: %w", rev, err)
-	}
 	return nil
 }
 
