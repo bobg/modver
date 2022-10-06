@@ -4,7 +4,7 @@
 // is needed to go from one to the other.
 //
 // Usage:
-//   modver -git REPO [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
+//   modver -git REPO [-gitpath PATH_TO_GIT] [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
 //   modver [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR
 //
 // With `-git REPO`,
@@ -14,6 +14,13 @@
 // containing the older and newer versions of a Go module.
 // Without the -git flag,
 // OLDER and NEWER are two directories containing the older and newer versions of a Go module.
+//
+// With `-gitpath PATH_TO_GIT`,
+// where PATH_TO_GIT is the path to a git binary.
+// Tells modver to use a native git client
+// versus using the go-git Go library for git operations.
+// Without the -gitpath flag,
+// modever will use the go-git library.
 //
 // With -v1 and -v2,
 // modver checks whether the change from OLDERVERSION to NEWERVERSION
@@ -105,7 +112,7 @@ func parseArgs() (gitRepo, v1, v2, gitPath string, quiet, versions bool, err err
 func doCompare(gitRepo, v1, v2, gitPath string, versions bool) (modver.Result, error) {
 	if gitRepo != "" {
 		if flag.NArg() != 2 {
-			return nil, fmt.Errorf("usage: %s -git [-gitpath /path/to/git] [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV", os.Args[0])
+			return nil, fmt.Errorf("usage: %s -git REPO [-gitpath PATH_TO_GIT] [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV", os.Args[0])
 		}
 
 		callback := modver.CompareDirs
