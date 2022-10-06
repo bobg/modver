@@ -55,7 +55,9 @@ import (
 // If you are using packages.Load
 // (see https://pkg.go.dev/golang.org/x/tools/go/packages#Load),
 // you will need at least
-//   packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo
+//
+//	packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo
+//
 // in your Config.Mode.
 // See CompareDirs for an example of how to call Compare with the result of packages.Load.
 func Compare(olders, newers []*packages.Package) Result {
@@ -274,15 +276,25 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
 
-	gitPath := GetGit(ctx)
-	if gitPath != "" {
-		cmd := exec.CommandContext(ctx, gitPath, "clone", repoURL, dir)
+	gitCmd := GetGit(ctx)
+	if gitCmd != "" {
+		found, err := exec.LookPath(gitCmd)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot resolve git command %s, falling back to go-git library: %s\n", gitCmd, err)
+			gitCmd = ""
+		} else {
+			gitCmd = found
+		}
+	}
+
+	if gitCmd != "" {
+		cmd := exec.CommandContext(ctx, gitCmd, "clone", repoURL, dir)
 		err = cmd.Run()
 		if err != nil {
 			return fmt.Errorf("native git cloning %s into %s: %w", repoURL, dir, err)
 		}
 
-		cmd = exec.CommandContext(ctx, gitPath, "checkout", rev)
+		cmd = exec.CommandContext(ctx, gitCmd, "checkout", rev)
 		cmd.Dir = dir
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("in native git checkout %s: %w", rev, err)
