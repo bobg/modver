@@ -189,7 +189,8 @@ func TestGit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := CompareGit(context.Background(), gitDir, "HEAD", "HEAD")
+	ctx := WithGit(context.Background(), "/usr/bin/git")
+	res, err := CompareGit(ctx, gitDir, "HEAD", "HEAD")
 	if err != nil {
 		t.Fatal(err)
 	}

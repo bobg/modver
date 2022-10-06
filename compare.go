@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/types"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -252,12 +253,13 @@ func CompareGitWith(ctx context.Context, repoURL, olderRev, newerRev string, f f
 	defer os.RemoveAll(parent)
 
 	olderDir := filepath.Join(parent, "older")
+	newerDir := filepath.Join(parent, "newer")
+
 	err = gitSetup(ctx, repoURL, olderDir, olderRev)
 	if err != nil {
 		return None, fmt.Errorf("setting up older clone: %w", err)
 	}
 
-	newerDir := filepath.Join(parent, "newer")
 	err = gitSetup(ctx, repoURL, newerDir, newerRev)
 	if err != nil {
 		return None, fmt.Errorf("setting up newer clone: %w", err)
@@ -271,22 +273,39 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 	if err != nil {
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
-	cloneOpts := &git.CloneOptions{URL: repoURL, NoCheckout: true}
-	repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
-	if err != nil {
-		return fmt.Errorf("cloning %s into %s: %w", repoURL, dir, err)
+
+	gitPath := GetGit(ctx)
+	if gitPath != "" {
+		cmd := exec.CommandContext(ctx, gitPath, "clone", repoURL, dir)
+		err = cmd.Run()
+		if err != nil {
+			return fmt.Errorf("native git cloning %s into %s: %w", repoURL, dir, err)
+		}
+
+		cmd = exec.CommandContext(ctx, gitPath, "checkout", rev)
+		cmd.Dir = dir
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("in native git checkout %s: %w", rev, err)
+		}
+	} else {
+		cloneOpts := &git.CloneOptions{URL: repoURL, NoCheckout: true}
+		repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
+		if err != nil {
+			return fmt.Errorf("cloning %s into %s: %w", repoURL, dir, err)
+		}
+		worktree, err := repo.Worktree()
+		if err != nil {
+			return fmt.Errorf("getting worktree from %s: %w", dir, err)
+		}
+		hash, err := repo.ResolveRevision(plumbing.Revision(rev))
+		if err != nil {
+			return fmt.Errorf(`resolving revision "%s": %w`, rev, err)
+		}
+		err = worktree.Checkout(&git.CheckoutOptions{Hash: *hash})
+		if err != nil {
+			return fmt.Errorf(`checking out "%s" in %s: %w`, rev, dir, err)
+		}
 	}
-	worktree, err := repo.Worktree()
-	if err != nil {
-		return fmt.Errorf("getting worktree from %s: %w", dir, err)
-	}
-	hash, err := repo.ResolveRevision(plumbing.Revision(rev))
-	if err != nil {
-		return fmt.Errorf(`resolving revision "%s": %w`, rev, err)
-	}
-	err = worktree.Checkout(&git.CheckoutOptions{Hash: *hash})
-	if err != nil {
-		return fmt.Errorf(`checking out "%s" in %s: %w`, rev, dir, err)
-	}
+
 	return nil
 }

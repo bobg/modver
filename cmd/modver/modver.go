@@ -4,7 +4,7 @@
 // is needed to go from one to the other.
 //
 // Usage:
-//   modver -git REPO [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
+//   modver -git REPO [-gitpath PATH_TO_GIT] [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
 //   modver [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR
 //
 // With `-git REPO`,
@@ -14,6 +14,13 @@
 // containing the older and newer versions of a Go module.
 // Without the -git flag,
 // OLDER and NEWER are two directories containing the older and newer versions of a Go module.
+//
+// With `-gitpath PATH_TO_GIT`,
+// where PATH_TO_GIT is the path to a git binary.
+// Tells modver to use a native git client
+// versus using the go-git Go library for git operations.
+// Without the -gitpath flag,
+// modever will use the go-git library.
 //
 // With -v1 and -v2,
 // modver checks whether the change from OLDERVERSION to NEWERVERSION
@@ -58,13 +65,13 @@ import (
 const errorStatus = 4
 
 func main() {
-	gitRepo, quiet, v1, v2, versions, err := parseArgs()
+	gitRepo, v1, v2, gitPath, quiet, versions, err := parseArgs()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing args: %s\n", err)
 		os.Exit(errorStatus)
 	}
 
-	res, err := doCompare(gitRepo, v1, v2, versions)
+	res, err := doCompare(gitRepo, v1, v2, gitPath, versions)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error in comparing: %s\n", err)
 		os.Exit(errorStatus)
@@ -73,7 +80,8 @@ func main() {
 	doShowResultExit(res, quiet, v1, v2, versions)
 }
 
-func parseArgs() (gitRepo string, quiet bool, v1, v2 string, versions bool, err error) {
+func parseArgs() (gitRepo, v1, v2, gitPath string, quiet, versions bool, err error) {
+	flag.StringVar(&gitPath, "gitpath", "", "tells modver to use native git client at the provided path (ex: /usr/bin/git) instead of go-git library")
 	flag.StringVar(&gitRepo, "git", "", "Git repo URL")
 	flag.BoolVar(&quiet, "q", false, "quiet mode: prints no output, exits with status 0, 1, 2, 3, or 4 to mean None, Patchlevel, Minor, Major, or error")
 	flag.StringVar(&v1, "v1", "", "version string of older version; with -v2 changes output to OK (exit status 0) for adequate version-number change, ERR (exit status 1) for inadequate")
@@ -101,17 +109,18 @@ func parseArgs() (gitRepo string, quiet bool, v1, v2 string, versions bool, err 
 	return
 }
 
-func doCompare(gitRepo, v1, v2 string, versions bool) (modver.Result, error) {
+func doCompare(gitRepo, v1, v2, gitPath string, versions bool) (modver.Result, error) {
 	if gitRepo != "" {
 		if flag.NArg() != 2 {
-			return nil, fmt.Errorf("usage: %s -git [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV", os.Args[0])
+			return nil, fmt.Errorf("usage: %s -git REPO [-gitpath PATH_TO_GIT] [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV", os.Args[0])
 		}
 
 		callback := modver.CompareDirs
 		if versions {
 			callback = getTags(&v1, &v2, flag.Arg(0), flag.Arg(1))
 		}
-		return modver.CompareGitWith(context.Background(), gitRepo, flag.Arg(0), flag.Arg(1), callback)
+		ctx := modver.WithGit(context.Background(), gitPath)
+		return modver.CompareGitWith(ctx, gitRepo, flag.Arg(0), flag.Arg(1), callback)
 	}
 	if flag.NArg() != 2 {
 		return nil, fmt.Errorf("usage: %s [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR", os.Args[0])
