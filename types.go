@@ -38,6 +38,12 @@ func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
 	}()
 
 	switch older := older.(type) {
+	case *types.Pointer:
+		if newer, ok := newer.(*types.Pointer); ok {
+			return c.compareTypes(older.Elem(), newer.Elem())
+		}
+		return rwrapf(Major, "%s went from pointer to non-pointer", older)
+
 	case *types.Named:
 		if newer, ok := newer.(*types.Named); ok {
 			return c.compareNamed(older, newer)

@@ -1,0 +1,31 @@
+//// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package pointer
+
+type X struct {
+	x int
+}
+
+func PrintX(x *X) {
+	print(x.x)
+}
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package pointer
+
+type X struct {
+	x int
+	y string
+}
+
+func PrintX(x *X) {
+	print(x.x)
+}
+
+//// {{ end }}
+
