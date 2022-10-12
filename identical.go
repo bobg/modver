@@ -55,6 +55,15 @@ func (c *comparer) identicalTypeParamLists(a, b *types.TypeParamList) bool {
 }
 
 func (c *comparer) identicalConstraint(a, b types.Type) bool {
+	if na, ok := a.(*types.Named); ok {
+		a = na.Underlying()
+	}
+	if nb, ok := b.(*types.Named); ok {
+		b = nb.Underlying()
+	}
+	if types.Identical(a, b) {
+		return true
+	}
 	return c.underlyingIdentical(a, b)
 }
 

@@ -1,0 +1,25 @@
+//// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package comparablefield
+
+type set[T comparable] map[T]struct{}
+
+type X struct {
+	s set[int]
+}
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package comparablefield
+
+type set[T comparable] map[T]struct{}
+
+type X struct {
+	s set[int]
+}
+
+//// {{ end }}
