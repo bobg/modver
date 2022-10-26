@@ -1,6 +1,10 @@
 package modver
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+	"strings"
+)
 
 // Result is the result of Compare.
 type Result interface {
@@ -55,6 +59,11 @@ func (w wrapped) String() string {
 	return fmt.Sprintf("%s: %s", w.r, w.why)
 }
 
+func (w wrapped) pretty(out io.Writer, level int) {
+	fmt.Fprintf(out, "%s%s\n\n", strings.Repeat("  ", level), w.why)
+	Pretty(out, w.r, level+1)
+}
+
 func rwrap(r Result, s string) Result {
 	return rwrapf(r, "%s", s)
 }
@@ -64,4 +73,16 @@ func rwrapf(r Result, format string, args ...any) Result {
 		return r
 	}
 	return wrapped{r: r, why: fmt.Sprintf(format, args...)}
+}
+
+type prettyer interface {
+	pretty(io.Writer, int)
+}
+
+func Pretty(out io.Writer, res Result, level int) {
+	if p, ok := res.(prettyer); ok {
+		p.pretty(out, level)
+	} else {
+		fmt.Fprintf(out, "%s%s\n", strings.Repeat("  ", level), res)
+	}
 }

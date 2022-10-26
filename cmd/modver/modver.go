@@ -184,7 +184,7 @@ func doShowResultExit(res modver.Result, quiet bool, v1, v2 string, versions boo
 		os.Exit(int(res.Code()))
 	}
 
-	fmt.Println(res)
+	modver.Pretty(os.Stdout, res, 0)
 }
 
 func getTags(v1, v2 *string, olderRev, newerRev string) func(older, newer string) (modver.Result, error) {
