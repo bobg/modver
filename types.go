@@ -1,6 +1,7 @@
 package modver
 
 import (
+	"fmt"
 	"go/ast"
 	"go/types"
 	"reflect"
@@ -71,6 +72,23 @@ func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
 			return c.compareSignatures(older, newer)
 		}
 		return rwrapf(Major, "%s went from function to non-function", older)
+
+	case *types.Map:
+		if newer, ok := newer.(*types.Map); ok {
+			kres := c.compareTypes(older.Key(), newer.Key())
+			vres := c.compareTypes(older.Elem(), newer.Elem())
+			if kres.Code() > vres.Code() {
+				return rwrapf(kres, "in the map-key type of %s", older)
+			}
+			return rwrapf(vres, "in the map-value type of %s", older)
+		}
+		return rwrapf(Major, "%s went from map to non-map", older)
+
+	case *types.Slice:
+		if newer, ok := newer.(*types.Slice); ok {
+			return c.compareTypes(older.Elem(), newer.Elem())
+		}
+		return rwrapf(Major, "%s went from slice to non-slice", older)
 
 	default:
 		if !c.assignableTo(newer, older) {
