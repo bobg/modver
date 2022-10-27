@@ -46,21 +46,26 @@ func (r ResultCode) String() string {
 }
 
 type wrapped struct {
-	r   Result
-	why string
+	r       Result
+	whyfmt  string
+	whyargs []any
 }
 
 // Code implements Result.Code.
-func (w wrapped) Code() ResultCode           { return w.r.Code() }
-func (w wrapped) sub(code ResultCode) Result { return wrapped{r: w.r.sub(code), why: w.why} }
+func (w wrapped) Code() ResultCode { return w.r.Code() }
+func (w wrapped) sub(code ResultCode) Result {
+	result := w
+	result.r = w.r.sub(code)
+	return result
+}
 
 // String implements Result.String.
 func (w wrapped) String() string {
-	return fmt.Sprintf("%s: %s", w.r, w.why)
+	return fmt.Sprintf("%s: %s", w.r, fmt.Sprintf(w.whyfmt, w.whyargs...))
 }
 
 func (w wrapped) pretty(out io.Writer, level int) {
-	fmt.Fprintf(out, "%s%s\n\n", strings.Repeat("  ", level), w.why)
+	fmt.Fprintf(out, "%s%s\n\n", strings.Repeat("  ", level), fmt.Sprintf(w.whyfmt, w.whyargs))
 	Pretty(out, w.r, level+1)
 }
 
@@ -72,7 +77,7 @@ func rwrapf(r Result, format string, args ...any) Result {
 	if r.Code() == None {
 		return r
 	}
-	return wrapped{r: r, why: fmt.Sprintf(format, args...)}
+	return wrapped{r: r, whyfmt: format, whyargs: args}
 }
 
 type prettyer interface {

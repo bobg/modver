@@ -3,6 +3,7 @@ package modver
 import (
 	"go/ast"
 	"go/types"
+	"reflect"
 	"regexp"
 
 	"golang.org/x/tools/go/packages"
@@ -83,6 +84,25 @@ func (c *comparer) compareNamed(older, newer *types.Named) Result {
 	res := c.compareTypeParamLists(older.TypeParams(), newer.TypeParams())
 	if r := c.compareTypes(older.Underlying(), newer.Underlying()); r.Code() > res.Code() {
 		res = r
+	}
+
+	if w, ok := res.(wrapped); ok {
+		var replaced bool
+		for i, arg := range w.whyargs {
+			if _, ok := arg.(types.Type); !ok {
+				continue
+			}
+			if reflect.DeepEqual(arg, older.Underlying()) {
+				w.whyargs[i] = older
+				replaced = true
+			} else if reflect.DeepEqual(arg, newer.Underlying()) {
+				w.whyargs[i] = newer
+				replaced = true
+			}
+		}
+		if replaced {
+			return w
+		}
 	}
 
 	return rwrapf(res, "in type %s", older)
