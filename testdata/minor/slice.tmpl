@@ -1,0 +1,21 @@
+// -*- mode: go -*-
+
+// {{ define "older" }}
+package slice
+
+var X []foo
+
+type foo struct {
+	a int
+}
+// {{ end }}
+
+// {{ define "newer" }}
+package slice
+
+var X []foo
+
+type foo struct {
+	a, b int
+}
+// {{ end }}
