@@ -59,13 +59,17 @@ func (w wrapped) sub(code ResultCode) Result {
 	return result
 }
 
+func (w wrapped) why() string {
+	return fmt.Sprintf(w.whyfmt, w.whyargs...)
+}
+
 // String implements Result.String.
 func (w wrapped) String() string {
-	return fmt.Sprintf("%s: %s", w.r, fmt.Sprintf(w.whyfmt, w.whyargs...))
+	return fmt.Sprintf("%s: %s", w.r, w.why())
 }
 
 func (w wrapped) pretty(out io.Writer, level int) {
-	fmt.Fprintf(out, "%s%s\n\n", strings.Repeat("  ", level), fmt.Sprintf(w.whyfmt, w.whyargs))
+	fmt.Fprintf(out, "%s%s\n\n", strings.Repeat("  ", level), w.why())
 	Pretty(out, w.r, level+1)
 }
 
