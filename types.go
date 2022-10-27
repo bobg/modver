@@ -1,7 +1,6 @@
 package modver
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 	"reflect"

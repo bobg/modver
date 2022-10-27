@@ -69,7 +69,7 @@ func (w wrapped) String() string {
 }
 
 func (w wrapped) pretty(out io.Writer, level int) {
-	fmt.Fprintf(out, "%s%s\n\n", strings.Repeat("  ", level), w.why())
+	fmt.Fprintf(out, "%s%s\n", strings.Repeat("  ", level), w.why())
 	Pretty(out, w.r, level+1)
 }
 
