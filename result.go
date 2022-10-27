@@ -70,7 +70,7 @@ func (w wrapped) String() string {
 
 func (w wrapped) pretty(out io.Writer, level int) {
 	fmt.Fprintf(out, "%s%s\n", strings.Repeat("  ", level), w.why())
-	Pretty(out, w.r, level+1)
+	prettyLevel(out, w.r, level+1)
 }
 
 func rwrap(r Result, s string) Result {
@@ -88,7 +88,12 @@ type prettyer interface {
 	pretty(io.Writer, int)
 }
 
-func Pretty(out io.Writer, res Result, level int) {
+// Pretty writes a pretty representation of res to out.
+func Pretty(out io.Writer, res Result) {
+	prettyLevel(out, res, 0)
+}
+
+func prettyLevel(out io.Writer, res Result, level int) {
 	if p, ok := res.(prettyer); ok {
 		p.pretty(out, level)
 	} else {

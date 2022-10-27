@@ -65,7 +65,7 @@ import (
 const errorStatus = 4
 
 func main() {
-	gitRepo, v1, v2, gitCmd, quiet, versions, err := parseArgs()
+	gitRepo, v1, v2, gitCmd, quiet, pretty, versions, err := parseArgs()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing args: %s\n", err)
 		os.Exit(errorStatus)
@@ -82,13 +82,14 @@ func main() {
 		os.Exit(errorStatus)
 	}
 
-	doShowResultExit(res, quiet, v1, v2, versions)
+	doShowResultExit(res, quiet, pretty, v1, v2, versions)
 }
 
-func parseArgs() (gitRepo, v1, v2, gitCmd string, quiet, versions bool, err error) {
+func parseArgs() (gitRepo, v1, v2, gitCmd string, quiet, pretty, versions bool, err error) {
 	flag.StringVar(&gitCmd, "gitcmd", "git", "use this command for git operations, if found; otherwise use the go-git library")
 	flag.StringVar(&gitRepo, "git", "", "Git repo URL")
 	flag.BoolVar(&quiet, "q", false, "quiet mode: prints no output, exits with status 0, 1, 2, 3, or 4 to mean None, Patchlevel, Minor, Major, or error")
+	flag.BoolVar(&pretty, "pretty", false, "result is shown in a pretty format with (possibly) multiple lines and indentation")
 	flag.StringVar(&v1, "v1", "", "version string of older version; with -v2 changes output to OK (exit status 0) for adequate version-number change, ERR (exit status 1) for inadequate")
 	flag.StringVar(&v2, "v2", "", "version string of newer version")
 	flag.BoolVar(&versions, "versions", false, "with -git, compute values for -v1 and -v2 from the Git repository")
@@ -133,7 +134,7 @@ func doCompare(ctx context.Context, gitRepo, v1, v2 string, versions bool) (modv
 	return modver.CompareDirs(flag.Arg(0), flag.Arg(1))
 }
 
-func doShowResultExit(res modver.Result, quiet bool, v1, v2 string, versions bool) {
+func doShowResultExit(res modver.Result, quiet, pretty bool, v1, v2 string, versions bool) {
 	if v1 != "" && v2 != "" {
 		var ok bool
 
@@ -184,7 +185,11 @@ func doShowResultExit(res modver.Result, quiet bool, v1, v2 string, versions boo
 		os.Exit(int(res.Code()))
 	}
 
-	modver.Pretty(os.Stdout, res, 0)
+	if pretty {
+		modver.Pretty(os.Stdout, res)
+	} else {
+		fmt.Println(res)
+	}
 }
 
 func getTags(v1, v2 *string, olderRev, newerRev string) func(older, newer string) (modver.Result, error) {
