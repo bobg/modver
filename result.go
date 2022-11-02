@@ -10,7 +10,6 @@ import (
 type Result interface {
 	Code() ResultCode
 	String() string
-	Unwrap() Result
 
 	sub(code ResultCode) Result
 }
@@ -27,12 +26,8 @@ const (
 )
 
 // Code implements Result.Code.
-func (r ResultCode) Code() ResultCode { return r }
-
-// Unwrap implements Result.Unwrap.
-func (ResultCode) Unwrap() Result { return nil }
-
-func (ResultCode) sub(code ResultCode) Result { return code }
+func (r ResultCode) Code() ResultCode           { return r }
+func (r ResultCode) sub(code ResultCode) Result { return code }
 
 // String implements Result.String.
 func (r ResultCode) String() string {
@@ -58,10 +53,6 @@ type wrapped struct {
 
 // Code implements Result.Code.
 func (w wrapped) Code() ResultCode { return w.r.Code() }
-
-// Unwrap implements Result.Unwrap.
-func (w wrapped) Unwrap() Result { return w.r }
-
 func (w wrapped) sub(code ResultCode) Result {
 	result := w
 	result.r = w.r.sub(code)
