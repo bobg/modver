@@ -2,7 +2,7 @@
 
 //// {{ define "older" }}
 
-package assignablechan1
+package unassignablechan
 
 type X chan int
 
@@ -12,9 +12,9 @@ var Y chan int
 
 //// {{ define "newer" }}
 
-package assignablechan1
+package unassignablechan
 
-type X = chan int
+type X chan int
 
 var Y X
 

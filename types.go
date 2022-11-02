@@ -1,6 +1,7 @@
 package modver
 
 import (
+	"fmt"
 	"go/ast"
 	"go/types"
 	"regexp"
@@ -38,6 +39,33 @@ func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
 	}()
 
 	switch older := older.(type) {
+	case *types.Array:
+		if newer, ok := newer.(*types.Array); ok {
+			if res = c.compareTypes(older.Elem(), newer.Elem()); res.Code() != None {
+				return rwrapf(res, "%s went from array of %s to array of %s", older, older.Elem(), newer.Elem())
+			}
+			if older.Len() != newer.Len() {
+				return rwrapf(Major, "%s went from length %d array to length %d", older, older.Len(), newer.Len())
+			}
+			return None
+		}
+		return rwrapf(Major, "%s went from array to non-array", older)
+
+	case *types.Chan:
+		if newer, ok := newer.(*types.Chan); ok {
+			if res = c.compareTypes(older.Elem(), newer.Elem()); res.Code() != None {
+				return rwrapf(res, "%s went from channel of %s to channel of %s", older, older.Elem(), newer.Elem())
+			}
+			if older.Dir() == newer.Dir() {
+				return None
+			}
+			if older.Dir() == types.SendRecv {
+				return rwrapf(Minor, "%s went from send/receive channel to %s", older, describeDirection(newer.Dir()))
+			}
+			return rwrapf(Major, "%s went from %s channel to %s", older, describeDirection(older.Dir()), describeDirection(newer.Dir()))
+		}
+		return rwrapf(Major, "%s went from channel to non-channel", older)
+
 	case *types.Pointer:
 		if newer, ok := newer.(*types.Pointer); ok {
 			return c.compareTypes(older.Elem(), newer.Elem())
@@ -71,11 +99,41 @@ func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
 		}
 		return rwrapf(Major, "%s went from function to non-function", older)
 
+	case *types.Map:
+		if newer, ok := newer.(*types.Map); ok {
+			kres := c.compareTypes(older.Key(), newer.Key())
+			vres := c.compareTypes(older.Elem(), newer.Elem())
+			if kres.Code() > vres.Code() {
+				return rwrapf(kres, "in the map-key type of %s", older)
+			}
+			return rwrapf(vres, "in the map-value type of %s", older)
+		}
+		return rwrapf(Major, "%s went from map to non-map", older)
+
+	case *types.Slice:
+		if newer, ok := newer.(*types.Slice); ok {
+			return c.compareTypes(older.Elem(), newer.Elem())
+		}
+		return rwrapf(Major, "%s went from slice to non-slice", older)
+
 	default:
 		if !c.assignableTo(newer, older) {
 			return rwrapf(Major, "%s is not assignable to %s", newer, older)
 		}
 		return None
+	}
+}
+
+func describeDirection(dir types.ChanDir) string {
+	switch dir {
+	case types.SendRecv:
+		return "send/receive"
+	case types.SendOnly:
+		return "send"
+	case types.RecvOnly:
+		return "receive"
+	default:
+		return fmt.Sprintf("[invalid direction %v]", dir)
 	}
 }
 
