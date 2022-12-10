@@ -20,7 +20,7 @@ or the patchlevel.
 Install the `modver` command like this:
 
 ```sh
-go install github.com/bobg/modver/cmd/modver@latest
+go install github.com/bobg/modver/v2/cmd/modver@latest
 ```
 
 Assuming the current directory is the root of a cloned Git repository,
