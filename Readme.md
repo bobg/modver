@@ -1,6 +1,6 @@
 # Modver
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/bobg/modver.svg)](https://pkg.go.dev/github.com/bobg/modver)
+[![Go Reference](https://pkg.go.dev/badge/github.com/bobg/modver.svg)](https://pkg.go.dev/github.com/bobg/modver/v2)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bobg/modver)](https://goreportcard.com/report/github.com/bobg/modver)
 [![Tests](https://github.com/bobg/modver/actions/workflows/go.yml/badge.svg)](https://github.com/bobg/modver/actions/workflows/go.yml)
 [![Coverage Status](https://coveralls.io/repos/github/bobg/modver/badge.svg?branch=master)](https://coveralls.io/github/bobg/modver?branch=master)
@@ -20,7 +20,7 @@ or the patchlevel.
 Install the `modver` command like this:
 
 ```sh
-go install github.com/bobg/modver/cmd/modver@latest
+go install github.com/bobg/modver/v2/cmd/modver@latest
 ```
 
 Assuming the current directory is the root of a cloned Git repository,
