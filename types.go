@@ -176,6 +176,10 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 
 	for i := 0; i < older.NumFields(); i++ {
 		field := older.Field(i)
+		if !ast.IsExported(field.Name()) {
+			// Changes in unexported struct fields don't count.
+			continue
+		}
 		newFieldIndex, ok := newerMap[field.Name()]
 		if !ok {
 			return rwrapf(Major, "old struct field %s was removed from %s", field.Name(), older)
@@ -200,6 +204,10 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 
 	for i := 0; i < newer.NumFields(); i++ {
 		field := newer.Field(i)
+		if !ast.IsExported(field.Name()) {
+			// Changes in unexported struct fields don't count.
+			continue
+		}
 		oldFieldIndex, ok := olderMap[field.Name()]
 		if !ok {
 			return rwrapf(Minor, "struct field %s was added to %s", field.Name(), newer)
