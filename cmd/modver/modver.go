@@ -5,8 +5,8 @@
 //
 // Usage:
 //
-//	modver -git REPO [-gitcmd GIT_COMMAND] [-q|-pretty] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
-//	modver [-q|-pretty] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR
+//	modver -git REPO [-gitcmd GIT_COMMAND] [-q|-pretty|-report] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
+//	modver [-q|-pretty|-report] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR
 //
 // With `-git REPO`,
 // where REPO is the path to a Git repository,
@@ -38,6 +38,7 @@
 // (or -versions),
 // output is a string describing the minimum version-number change required.
 // With -pretty that string is split across multiple lines with indentation, for clarity.
+// With -report, all the reasons for a result are shown (in pretty fashion), not just the first.
 // In quiet mode (-q),
 // there is no output,
 // and the exit status is 0, 1, 2, 3, or 4
@@ -66,7 +67,7 @@ import (
 const errorStatus = 4
 
 func main() {
-	gitRepo, v1, v2, gitCmd, quiet, pretty, versions, err := parseArgs()
+	gitRepo, v1, v2, gitCmd, quiet, pretty, report, versions, err := parseArgs()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing args: %s\n", err)
 		os.Exit(errorStatus)
@@ -77,7 +78,7 @@ func main() {
 		ctx = modver.WithGit(ctx, gitCmd)
 	}
 
-	res, err := doCompare(ctx, gitRepo, v1, v2, versions)
+	res, err := doCompare(ctx, gitRepo, v1, v2, versions, report)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error in comparing: %s\n", err)
 		os.Exit(errorStatus)
@@ -86,11 +87,12 @@ func main() {
 	doShowResultExit(res, quiet, pretty, v1, v2, versions)
 }
 
-func parseArgs() (gitRepo, v1, v2, gitCmd string, quiet, pretty, versions bool, err error) {
+func parseArgs() (gitRepo, v1, v2, gitCmd string, quiet, pretty, report, versions bool, err error) {
 	flag.StringVar(&gitCmd, "gitcmd", "git", "use this command for git operations, if found; otherwise use the go-git library")
 	flag.StringVar(&gitRepo, "git", "", "Git repo URL")
 	flag.BoolVar(&quiet, "q", false, "quiet mode: prints no output, exits with status 0, 1, 2, 3, or 4 to mean None, Patchlevel, Minor, Major, or error")
 	flag.BoolVar(&pretty, "pretty", false, "result is shown in a pretty format with (possibly) multiple lines and indentation")
+	flag.BoolVar(&report, "report", false, "report shows all the reasons for a result instead of stopping after the first; implies -pretty")
 	flag.StringVar(&v1, "v1", "", "version string of older version; with -v2 changes output to OK (exit status 0) for adequate version-number change, ERR (exit status 1) for inadequate")
 	flag.StringVar(&v2, "v2", "", "version string of newer version")
 	flag.BoolVar(&versions, "versions", false, "with -git, compute values for -v1 and -v2 from the Git repository")
@@ -113,13 +115,22 @@ func parseArgs() (gitRepo, v1, v2, gitCmd string, quiet, pretty, versions bool, 
 		}
 	}
 
+	if report {
+		pretty = true
+	}
+
 	return
 }
 
-func doCompare(ctx context.Context, gitRepo, v1, v2 string, versions bool) (modver.Result, error) {
+func doCompare(ctx context.Context, gitRepo, v1, v2 string, versions, report bool) (modver.Result, error) {
+	var opts []modver.Option
+	if report {
+		opts = append(opts, modver.Report(true))
+	}
+
 	if gitRepo != "" {
 		if flag.NArg() != 2 {
-			return nil, fmt.Errorf("usage: %s -git REPO [-gitcmd GIT_COMMAND] [-q|-pretty] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV", os.Args[0])
+			return nil, fmt.Errorf("usage: %s -git REPO [-gitcmd GIT_COMMAND] [-q|-pretty|-report] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV", os.Args[0])
 		}
 
 		callback := modver.CompareDirs
@@ -127,12 +138,14 @@ func doCompare(ctx context.Context, gitRepo, v1, v2 string, versions bool) (modv
 			callback = getTags(&v1, &v2, flag.Arg(0), flag.Arg(1))
 		}
 
-		return modver.CompareGitWith(ctx, gitRepo, flag.Arg(0), flag.Arg(1), callback)
+		return modver.CompareGitWith(ctx, gitRepo, flag.Arg(0), flag.Arg(1), func(older, newer string) (modver.Result, error) {
+			return callback(older, newer, opts...)
+		})
 	}
 	if flag.NArg() != 2 {
-		return nil, fmt.Errorf("usage: %s [-q|-pretty] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR", os.Args[0])
+		return nil, fmt.Errorf("usage: %s [-q|-pretty|-report] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR", os.Args[0])
 	}
-	return modver.CompareDirs(flag.Arg(0), flag.Arg(1))
+	return modver.CompareDirs(flag.Arg(0), flag.Arg(1), opts...)
 }
 
 func doShowResultExit(res modver.Result, quiet, pretty bool, v1, v2 string, versions bool) {
@@ -193,8 +206,8 @@ func doShowResultExit(res modver.Result, quiet, pretty bool, v1, v2 string, vers
 	}
 }
 
-func getTags(v1, v2 *string, olderRev, newerRev string) func(older, newer string) (modver.Result, error) {
-	return func(older, newer string) (modver.Result, error) {
+func getTags(v1, v2 *string, olderRev, newerRev string) func(older, newer string, opts ...modver.Option) (modver.Result, error) {
+	return func(older, newer string, opts ...modver.Option) (modver.Result, error) {
 		tag, err := getTag(older, olderRev)
 		if err != nil {
 			return modver.None, fmt.Errorf("getting tag from %s: %w", older, err)
@@ -207,7 +220,7 @@ func getTags(v1, v2 *string, olderRev, newerRev string) func(older, newer string
 		}
 		*v2 = tag
 
-		return modver.CompareDirs(older, newer)
+		return modver.CompareDirs(older, newer, opts...)
 	}
 }
 

@@ -22,13 +22,16 @@ type (
 	typePair struct{ a, b types.Type }
 )
 
-func NewComparer(older, newer []*packages.Package) *Comparer {
-	return &Comparer{
-		older:  makePackageMap(older),
-		newer:  makePackageMap(newer),
-		cache:  make(map[typePair]Result),
-		report: true, // xxx
+func NewComparer(older, newer []*packages.Package, opts ...Option) *Comparer {
+	c := &Comparer{
+		older: makePackageMap(older),
+		newer: makePackageMap(newer),
+		cache: make(map[typePair]Result),
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 func (c *Comparer) compareTypes(older, newer types.Type) (res Result) {

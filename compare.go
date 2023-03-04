@@ -61,8 +61,8 @@ import (
 //
 // in your Config.Mode.
 // See CompareDirs for an example of how to call Compare with the result of packages.Load.
-func Compare(older, newer []*packages.Package) Result {
-	c := NewComparer(older, newer)
+func Compare(older, newer []*packages.Package, opts ...Option) Result {
+	c := NewComparer(older, newer, opts...)
 	return c.Run()
 }
 
@@ -255,7 +255,7 @@ func (c *Comparer) comparePatchlevel() Result {
 
 // CompareDirs loads Go modules from the directories at older and newer
 // and calls Compare on the results.
-func CompareDirs(older, newer string) (Result, error) {
+func CompareDirs(older, newer string, opts ...Option) (Result, error) {
 	cfg := &packages.Config{
 		Mode: packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedModule,
 		Dir:  older,
@@ -281,7 +281,7 @@ func CompareDirs(older, newer string) (Result, error) {
 		}
 	}
 
-	return Compare(olders, newers), nil
+	return Compare(olders, newers, opts...), nil
 }
 
 type errpkg struct {
@@ -297,8 +297,10 @@ func (p errpkg) Error() string {
 }
 
 // CompareGit compares the Go packages in two revisions of a Git repo at the given URL.
-func CompareGit(ctx context.Context, repoURL, olderRev, newerRev string) (Result, error) {
-	return CompareGitWith(ctx, repoURL, olderRev, newerRev, CompareDirs)
+func CompareGit(ctx context.Context, repoURL, olderRev, newerRev string, opts ...Option) (Result, error) {
+	return CompareGitWith(ctx, repoURL, olderRev, newerRev, func(older, newer string) (Result, error) {
+		return CompareDirs(older, newer, opts...)
+	})
 }
 
 // CompareGitWith compares the Go packages in two revisions of a Git repo at the given URL.
