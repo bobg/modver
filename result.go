@@ -45,6 +45,41 @@ func (r ResultCode) String() string {
 	}
 }
 
+type ResultList []Result
+
+func (r ResultList) Code() ResultCode {
+	if len(r) == 0 {
+		return None
+	}
+	return r[0].Code()
+}
+
+func (r ResultList) String() string {
+	if len(r) == 0 {
+		return None.String()
+	}
+	var strs []string
+	for _, rr := range r {
+		strs = append(strs, rr.String())
+	}
+	return strings.Join(strs, "; ")
+}
+
+func (r ResultList) pretty(out io.Writer, level int) {
+	prettyLevel(out, r.Code(), level)
+	for _, rr := range r {
+		prettyLevel(out, rr, level+1)
+	}
+}
+
+func (r ResultList) sub(code ResultCode) Result {
+	var result ResultList
+	for _, rr := range r {
+		r = append(r, rr.sub(code))
+	}
+	return result
+}
+
 type wrapped struct {
 	r       Result
 	whyfmt  string

@@ -3,7 +3,7 @@ package modver
 import "go/types"
 
 // https://golang.org/ref/spec#Type_identity
-func (c *comparer) identical(a, b types.Type) bool {
+func (c *Comparer) identical(a, b types.Type) bool {
 	if types.Identical(a, b) {
 		return true
 	}
@@ -42,7 +42,7 @@ func (c *comparer) identical(a, b types.Type) bool {
 	return c.underlyingIdentical(ua, ub)
 }
 
-func (c *comparer) identicalTypeParamLists(a, b *types.TypeParamList) bool {
+func (c *Comparer) identicalTypeParamLists(a, b *types.TypeParamList) bool {
 	if a.Len() != b.Len() {
 		return false
 	}
@@ -54,7 +54,7 @@ func (c *comparer) identicalTypeParamLists(a, b *types.TypeParamList) bool {
 	return true
 }
 
-func (c *comparer) identicalConstraint(a, b types.Type) bool {
+func (c *Comparer) identicalConstraint(a, b types.Type) bool {
 	if na, ok := a.(*types.Named); ok {
 		a = na.Underlying()
 	}
@@ -67,7 +67,7 @@ func (c *comparer) identicalConstraint(a, b types.Type) bool {
 	return c.underlyingIdentical(a, b)
 }
 
-func (c *comparer) underlyingIdentical(ua, ub types.Type) bool {
+func (c *Comparer) underlyingIdentical(ua, ub types.Type) bool {
 	switch ua := ua.(type) {
 
 	case *types.Array:
@@ -117,7 +117,7 @@ func (c *comparer) underlyingIdentical(ua, ub types.Type) bool {
 	return false
 }
 
-func (c *comparer) identicalStructs(ua *types.Struct, b types.Type) bool {
+func (c *Comparer) identicalStructs(ua *types.Struct, b types.Type) bool {
 	ub, ok := b.(*types.Struct)
 	if !ok {
 		return false
@@ -152,11 +152,11 @@ func (c *comparer) identicalStructs(ua *types.Struct, b types.Type) bool {
 	return true
 }
 
-func (c *comparer) identicalSigs(older, newer *types.Signature) bool {
+func (c *Comparer) identicalSigs(older, newer *types.Signature) bool {
 	return c.compareSignatures(older, newer).Code() == None
 }
 
-func (c *comparer) identicalInterfaces(ua *types.Interface, b types.Type) bool {
+func (c *Comparer) identicalInterfaces(ua *types.Interface, b types.Type) bool {
 	ub, ok := b.(*types.Interface)
 	if !ok {
 		return false
@@ -200,7 +200,7 @@ func (c *comparer) identicalInterfaces(ua *types.Interface, b types.Type) bool {
 	return types.Implements(ua, ub) && types.Implements(ub, ua)
 }
 
-func (c *comparer) identicalMaps(ua *types.Map, b types.Type) bool {
+func (c *Comparer) identicalMaps(ua *types.Map, b types.Type) bool {
 	ub, ok := b.(*types.Map)
 	if !ok {
 		return false
@@ -213,7 +213,7 @@ func (c *comparer) identicalMaps(ua *types.Map, b types.Type) bool {
 	return c.identical(ua.Elem(), ub.Elem())
 }
 
-func (c *comparer) identicalChans(ua *types.Chan, b types.Type) bool {
+func (c *Comparer) identicalChans(ua *types.Chan, b types.Type) bool {
 	ub, ok := b.(*types.Chan)
 	if !ok {
 		return false

@@ -5,7 +5,7 @@ package modver
 import "go/types"
 
 // termSubset reports whether x ⊆ y.
-func (c *comparer) termSubset(x, y *types.Term) bool {
+func (c *Comparer) termSubset(x, y *types.Term) bool {
 	// easy cases
 	switch {
 	case x == nil:
@@ -33,7 +33,7 @@ func (c *comparer) termSubset(x, y *types.Term) bool {
 
 // termDisjoint reports whether x ∩ y == ∅.
 // x.typ and y.typ must not be nil.
-func (c *comparer) termDisjoint(x, y *types.Term) bool {
+func (c *Comparer) termDisjoint(x, y *types.Term) bool {
 	ux := x.Type()
 	if y.Tilde() {
 		ux = ux.Underlying()
@@ -46,7 +46,7 @@ func (c *comparer) termDisjoint(x, y *types.Term) bool {
 }
 
 // termListSubset reports whether xl ⊆ yl.
-func (c *comparer) termListSubset(xl, yl []*types.Term) bool {
+func (c *Comparer) termListSubset(xl, yl []*types.Term) bool {
 	if len(yl) == 0 {
 		return len(xl) == 0
 	}
@@ -61,7 +61,7 @@ func (c *comparer) termListSubset(xl, yl []*types.Term) bool {
 }
 
 // termListSuperset reports whether y ⊆ xl.
-func (c *comparer) termListSuperset(xl []*types.Term, y *types.Term) bool {
+func (c *Comparer) termListSuperset(xl []*types.Term, y *types.Term) bool {
 	for _, x := range xl {
 		if c.termSubset(y, x) {
 			return true

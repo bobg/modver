@@ -11,18 +11,27 @@ import (
 )
 
 type (
-	comparer struct {
-		stack []typePair
-		cache map[typePair]Result
+	// Comparer compares an "older" set of Go packages against a "newer".
+	Comparer struct {
+		older, newer map[string]*packages.Package
+		stack        []typePair
+		cache        map[typePair]Result
+		report       bool
 	}
+
 	typePair struct{ a, b types.Type }
 )
 
-func newComparer() *comparer {
-	return &comparer{cache: make(map[typePair]Result)}
+func NewComparer(older, newer []*packages.Package) *Comparer {
+	return &Comparer{
+		older:  makePackageMap(older),
+		newer:  makePackageMap(newer),
+		cache:  make(map[typePair]Result),
+		report: true, // xxx
+	}
 }
 
-func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
+func (c *Comparer) compareTypes(older, newer types.Type) (res Result) {
 	pair := typePair{a: older, b: newer}
 	if res, ok := c.cache[pair]; ok {
 		if res == nil {
@@ -138,7 +147,7 @@ func describeDirection(dir types.ChanDir) string {
 	}
 }
 
-func (c *comparer) compareNamed(older, newer *types.Named) Result {
+func (c *Comparer) compareNamed(older, newer *types.Named) Result {
 	res := c.compareTypeParamLists(older.TypeParams(), newer.TypeParams())
 	if r := c.compareTypes(older.Underlying(), newer.Underlying()); r.Code() > res.Code() {
 		res = r
@@ -166,7 +175,7 @@ func (c *comparer) compareNamed(older, newer *types.Named) Result {
 	return rwrapf(res, "in type %s", older)
 }
 
-func (c *comparer) compareStructs(older, newer *types.Struct) Result {
+func (c *Comparer) compareStructs(older, newer *types.Struct) Result {
 	var (
 		olderMap = structMap(older)
 		newerMap = structMap(newer)
@@ -228,7 +237,7 @@ func (c *comparer) compareStructs(older, newer *types.Struct) Result {
 	return None
 }
 
-func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
+func (c *Comparer) compareInterfaces(older, newer *types.Interface) Result {
 	var res Result = None
 
 	if c.implements(newer, older) {
@@ -334,7 +343,7 @@ func termsOf(typ types.Type) []*types.Term {
 	return res
 }
 
-func (c *comparer) compareSignatures(older, newer *types.Signature) Result {
+func (c *Comparer) compareSignatures(older, newer *types.Signature) Result {
 	var (
 		typeParamsRes = c.compareTypeParamLists(older.TypeParams(), newer.TypeParams())
 		paramsRes     = c.compareTuples(older.Params(), newer.Params(), !older.Variadic() && newer.Variadic())
@@ -351,7 +360,7 @@ func (c *comparer) compareSignatures(older, newer *types.Signature) Result {
 	return res
 }
 
-func (c *comparer) compareTuples(older, newer *types.Tuple, variadicCheck bool) Result {
+func (c *Comparer) compareTuples(older, newer *types.Tuple, variadicCheck bool) Result {
 	la, lb := older.Len(), newer.Len()
 
 	maybeVariadic := variadicCheck && (la+1 == lb)
@@ -378,7 +387,7 @@ func (c *comparer) compareTuples(older, newer *types.Tuple, variadicCheck bool) 
 	return res
 }
 
-func (c *comparer) compareTypeParamLists(older, newer *types.TypeParamList) Result {
+func (c *Comparer) compareTypeParamLists(older, newer *types.TypeParamList) Result {
 	if older.Len() != newer.Len() {
 		return rwrapf(Major, "went from %d type parameter(s) to %d", older.Len(), newer.Len())
 	}
@@ -398,7 +407,7 @@ func (c *comparer) compareTypeParamLists(older, newer *types.TypeParamList) Resu
 	return res
 }
 
-func (c *comparer) compareStructTags(a, b string) Result {
+func (c *Comparer) compareStructTags(a, b string) Result {
 	if a == b {
 		return None
 	}
@@ -424,7 +433,7 @@ func (c *comparer) compareStructTags(a, b string) Result {
 }
 
 // https://golang.org/ref/spec#Assignability
-func (c *comparer) assignableTo(v, t types.Type) bool {
+func (c *Comparer) assignableTo(v, t types.Type) bool {
 	if types.AssignableTo(v, t) {
 		return true
 	}
@@ -460,7 +469,7 @@ func (c *comparer) assignableTo(v, t types.Type) bool {
 	return c.assignableBasic(v, t, uv, ut)
 }
 
-func (c *comparer) assignableChan(v, t, uv, ut types.Type) bool {
+func (c *Comparer) assignableChan(v, t, uv, ut types.Type) bool {
 	// "x is a bidirectional channel value,
 	// T is a channel type,
 	// x's type V and T have identical element types,
@@ -478,7 +487,7 @@ func (c *comparer) assignableChan(v, t, uv, ut types.Type) bool {
 	return false
 }
 
-func (c *comparer) assignableBasic(v, t, uv, ut types.Type) bool {
+func (c *Comparer) assignableBasic(v, t, uv, ut types.Type) bool {
 	b, ok := v.(*types.Basic)
 	if !ok {
 		return false
@@ -513,7 +522,7 @@ func (c *comparer) assignableBasic(v, t, uv, ut types.Type) bool {
 }
 
 // https://golang.org/ref/spec#Method_sets
-func (c *comparer) implements(v types.Type, t *types.Interface) bool {
+func (c *Comparer) implements(v types.Type, t *types.Interface) bool {
 	if types.Implements(v, t) {
 		return true
 	}
@@ -532,7 +541,7 @@ func (c *comparer) implements(v types.Type, t *types.Interface) bool {
 	return true
 }
 
-func (c *comparer) samePackage(a, b *types.Package) bool {
+func (c *Comparer) samePackage(a, b *types.Package) bool {
 	return a.Path() == b.Path()
 }
 

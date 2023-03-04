@@ -2,22 +2,32 @@ package modver
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 )
 
 func TestPretty(t *testing.T) {
-	buf := new(bytes.Buffer)
-	Pretty(buf, Minor)
-	if buf.String() != "Minor\n" {
-		t.Errorf("got %s, want Minor\\n", buf)
-	}
+	cases := []struct {
+		r    Result
+		want string
+	}{{
+		r:    Minor,
+		want: "Minor\n",
+	}, {
+		r:    rwrap(Minor, "foo"),
+		want: "foo\n  Minor\n",
+	}, {
+		r:    ResultList{Minor, rwrap(Minor, "foo")},
+		want: "Minor\n  Minor\n  foo\n    Minor\n",
+	}}
 
-	buf.Reset()
-
-	res := rwrap(Minor, "foo")
-	Pretty(buf, res)
-	const want = "foo\n  Minor\n"
-	if buf.String() != want {
-		t.Errorf("got %s, want %s", buf, want)
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("case_%02d", i+1), func(t *testing.T) {
+			buf := new(bytes.Buffer)
+			Pretty(buf, tc.r)
+			if buf.String() != tc.want {
+				t.Errorf("got %s, want %s", buf, tc.want)
+			}
+		})
 	}
 }

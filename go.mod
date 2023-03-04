@@ -3,6 +3,7 @@ module github.com/bobg/modver/v2
 go 1.18
 
 require (
+	github.com/bobg/go-generics v1.7.2
 	github.com/go-git/go-git/v5 v5.6.0
 	github.com/pkg/errors v0.9.1
 	golang.org/x/mod v0.9.0

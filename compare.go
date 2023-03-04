@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bobg/go-generics/set"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"golang.org/x/mod/semver"
@@ -60,44 +61,51 @@ import (
 //
 // in your Config.Mode.
 // See CompareDirs for an example of how to call Compare with the result of packages.Load.
-func Compare(olders, newers []*packages.Package) Result {
-	var (
-		older = makePackageMap(olders)
-		newer = makePackageMap(newers)
-	)
+func Compare(older, newer []*packages.Package) Result {
+	c := NewComparer(older, newer)
+	return c.Run()
+}
 
-	c := newComparer()
-
+func (c *Comparer) Run() Result {
 	// Look for major-version changes.
-	if res := c.compareMajor(older, newer); res != nil {
+	if res := c.compareMajor(); res != nil {
 		return res
 	}
 
 	// Look for minor-version changes.
-	if res := c.compareMinor(older, newer); res != nil {
+	if res := c.compareMinor(); res != nil {
 		return res
 	}
 
 	// Finally, look for patchlevel-version changes.
-	if res := c.comparePatchlevel(older, newer); res != nil {
+	if res := c.comparePatchlevel(); res != nil {
 		return res
 	}
 
 	return None
 }
 
-func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Result {
-	for pkgPath, pkg := range older {
+func (c *Comparer) compareMajor() Result {
+	var results ResultList
+
+	mods := set.New[string]()
+
+	for pkgPath, pkg := range c.older {
 		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
 			// Nothing in an internal package or subpackage is part of the public API.
 			continue
 		}
 
-		newPkg := newer[pkgPath]
+		newPkg := c.newer[pkgPath]
 		if newPkg != nil {
-			if oldMod, newMod := pkg.Module, newPkg.Module; oldMod != nil && newMod != nil {
+			if oldMod, newMod := pkg.Module, newPkg.Module; oldMod != nil && newMod != nil && !mods.Has(oldMod.Path) {
 				if cmp := semver.Compare("v"+oldMod.GoVersion, "v"+newMod.GoVersion); cmp < 0 {
-					return rwrapf(Major, "minimum Go version changed from %s to %s", oldMod.GoVersion, newMod.GoVersion)
+					r := rwrapf(Major, "minimum Go version changed from %s to %s", oldMod.GoVersion, newMod.GoVersion)
+					if !c.report {
+						return r
+					}
+					results = append(results, r)
+					mods.Add(oldMod.Path) // Don't keep rechecking the same module.
 				}
 			}
 		}
@@ -112,26 +120,45 @@ func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Resul
 				continue
 			}
 			if newPkg == nil {
-				return rwrapf(Major, "no new version of package %s", pkgPath)
+				r := rwrapf(Major, "no new version of package %s", pkgPath)
+				if !c.report {
+					return r
+				}
+				results = append(results, r)
+				continue
 			}
 			if newTopObjs == nil {
 				newTopObjs = makeTopObjs(newPkg)
 			}
 			newObj := newTopObjs[id]
 			if newObj == nil {
-				return rwrapf(Major, "no object %s in new version of package %s", id, pkgPath)
+				r := rwrapf(Major, "no object %s in new version of package %s", id, pkgPath)
+				if !c.report {
+					return r
+				}
+				results = append(results, r)
+				continue
 			}
 			if res := c.compareTypes(obj.Type(), newObj.Type()); res.Code() == Major {
-				return rwrapf(res, "checking %s", id)
+				r := rwrapf(res, "checking %s", id)
+				if !c.report {
+					return r
+				}
+				results = append(results, r)
 			}
 		}
 	}
 
-	return nil
+	if len(results) == 0 {
+		return nil
+	}
+	return results
 }
 
-func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Result {
-	for pkgPath, pkg := range newer {
+func (c *Comparer) compareMinor() Result {
+	var results ResultList
+
+	for pkgPath, pkg := range c.newer {
 		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
 			// Nothing in an internal package or subpackage is part of the public API.
 			continue
@@ -139,7 +166,7 @@ func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Resul
 
 		var (
 			topObjs    = makeTopObjs(pkg)
-			oldPkg     = older[pkgPath]
+			oldPkg     = c.older[pkgPath]
 			oldTopObjs map[string]types.Object
 		)
 
@@ -148,46 +175,82 @@ func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Resul
 				continue
 			}
 			if oldPkg == nil {
-				return rwrapf(Minor, "no old version of package %s", pkgPath)
+				r := rwrapf(Minor, "no old version of package %s", pkgPath)
+				if !c.report {
+					return r
+				}
+				results = append(results, r)
+				continue
 			}
 			if oldTopObjs == nil {
 				oldTopObjs = makeTopObjs(oldPkg)
 			}
 			oldObj := oldTopObjs[id]
 			if oldObj == nil {
-				return rwrapf(Minor, "no object %s in old version of package %s", id, pkgPath)
+				r := rwrapf(Minor, "no object %s in old version of package %s", id, pkgPath)
+				if !c.report {
+					return r
+				}
+				results = append(results, r)
+				continue
 			}
 			if res := c.compareTypes(oldObj.Type(), obj.Type()); res.Code() >= Minor {
-				return rwrapf(res.sub(Minor), "checking %s", id)
+				r := rwrapf(res.sub(Minor), "checking %s", id)
+				if !c.report {
+					return r
+				}
+				results = append(results, r)
 			}
 		}
 	}
 
-	return nil
+	if len(results) == 0 {
+		return nil
+	}
+	return results
 }
 
-func (c *comparer) comparePatchlevel(older, newer map[string]*packages.Package) Result {
-	for pkgPath, pkg := range older {
+func (c *Comparer) comparePatchlevel() Result {
+	var results ResultList
+
+	for pkgPath, pkg := range c.older {
 		var (
 			topObjs = makeTopObjs(pkg)
-			newPkg  = newer[pkgPath]
+			newPkg  = c.newer[pkgPath]
 		)
 		if newPkg == nil {
-			return rwrapf(Patchlevel, "no new version of package %s", pkgPath)
+			r := rwrapf(Patchlevel, "no new version of package %s", pkgPath)
+			if !c.report {
+				return r
+			}
+			results = append(results, r)
+			continue
 		}
 		newTopObjs := makeTopObjs(newPkg)
 		for id, obj := range topObjs {
 			newObj := newTopObjs[id]
 			if newObj == nil {
-				return rwrapf(Patchlevel, "no object %s in new version of package %s", id, pkgPath)
+				r := rwrapf(Patchlevel, "no object %s in new version of package %s", id, pkgPath)
+				if !c.report {
+					return r
+				}
+				results = append(results, r)
+				continue
 			}
 			if res := c.compareTypes(obj.Type(), newObj.Type()); res.Code() != None {
-				return rwrapf(res.sub(Patchlevel), "checking %s", id)
+				r := rwrapf(res.sub(Patchlevel), "checking %s", id)
+				if !c.report {
+					return r
+				}
+				results = append(results, r)
 			}
 		}
 	}
 
-	return nil
+	if len(results) == 0 {
+		return nil
+	}
+	return results
 }
 
 // CompareDirs loads Go modules from the directories at older and newer

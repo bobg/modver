@@ -40,7 +40,7 @@ func TestIdenticalArray(t *testing.T) {
 
 		for i, tc := range cases {
 			t.Run(fmt.Sprintf("case_%d", i+1), func(t *testing.T) {
-				c := newComparer()
+				c := NewComparer(nil, nil)
 				if got := c.identical(a1, tc.t2); got != tc.want {
 					t.Errorf("got %v, want %v", got, tc.want)
 				}
@@ -73,7 +73,7 @@ func TestIdenticalChan(t *testing.T) {
 
 		for i := 0; i < len(chans); i++ {
 			for j := i; j < len(chans); j++ {
-				c := newComparer()
+				c := NewComparer(nil, nil)
 				if got := c.identical(chans[i], chans[j]); got != (i == j) {
 					t.Errorf("case %d/%d: got %v, want %v", i, j, got, i == j)
 				}
