@@ -5,8 +5,8 @@
 //
 // Usage:
 //
-//	modver -git REPO [-gitcmd GIT_COMMAND] [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
-//	modver [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR
+//	modver -git REPO [-gitcmd GIT_COMMAND] [-q|-pretty] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
+//	modver [-q|-pretty] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR
 //
 // With `-git REPO`,
 // where REPO is the path to a Git repository,
@@ -37,6 +37,7 @@
 // Without -v1 and -v2
 // (or -versions),
 // output is a string describing the minimum version-number change required.
+// With -pretty that string is split across multiple lines with indentation, for clarity.
 // In quiet mode (-q),
 // there is no output,
 // and the exit status is 0, 1, 2, 3, or 4
@@ -118,7 +119,7 @@ func parseArgs() (gitRepo, v1, v2, gitCmd string, quiet, pretty, versions bool, 
 func doCompare(ctx context.Context, gitRepo, v1, v2 string, versions bool) (modver.Result, error) {
 	if gitRepo != "" {
 		if flag.NArg() != 2 {
-			return nil, fmt.Errorf("usage: %s -git REPO [-gitcmd GIT_COMMAND] [-q] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV", os.Args[0])
+			return nil, fmt.Errorf("usage: %s -git REPO [-gitcmd GIT_COMMAND] [-q|-pretty] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV", os.Args[0])
 		}
 
 		callback := modver.CompareDirs
@@ -129,7 +130,7 @@ func doCompare(ctx context.Context, gitRepo, v1, v2 string, versions bool) (modv
 		return modver.CompareGitWith(ctx, gitRepo, flag.Arg(0), flag.Arg(1), callback)
 	}
 	if flag.NArg() != 2 {
-		return nil, fmt.Errorf("usage: %s [-q] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR", os.Args[0])
+		return nil, fmt.Errorf("usage: %s [-q|-pretty] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR", os.Args[0])
 	}
 	return modver.CompareDirs(flag.Arg(0), flag.Arg(1))
 }
