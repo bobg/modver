@@ -86,10 +86,22 @@ func Compare(olders, newers []*packages.Package) Result {
 	return None
 }
 
+func isPublic(pkgpath string) bool {
+	if strings.HasSuffix(pkgpath, "/main") {
+		return false
+	}
+	if strings.HasSuffix(pkgpath, "/internal") {
+		return false
+	}
+	if strings.Contains(pkgpath, "/internal/") {
+		return false
+	}
+	return true
+}
+
 func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Result {
 	for pkgPath, pkg := range older {
-		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
-			// Nothing in an internal package or subpackage is part of the public API.
+		if !isPublic(pkgPath) {
 			continue
 		}
 
@@ -132,8 +144,7 @@ func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Resul
 
 func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Result {
 	for pkgPath, pkg := range newer {
-		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
-			// Nothing in an internal package or subpackage is part of the public API.
+		if !isPublic(pkgPath) {
 			continue
 		}
 
