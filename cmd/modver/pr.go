@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	_ "embed"
+	"io"
 	"regexp"
+	"strings"
 	"text/template"
 
 	"github.com/google/go-github/v50/github"
@@ -57,7 +60,15 @@ func doPR(ctx context.Context, gh *github.Client, owner, reponame string, prnum 
 var modverCommentRegex = regexp.MustCompile(`^# Modver result$`)
 
 func isModverComment(comment *github.IssueComment) bool {
-	return modverCommentRegex.MatchString(*comment.Body)
+	var r io.Reader = strings.NewReader(*comment.Body)
+	r = &io.LimitedReader{R: r, N: 1024}
+	sc := bufio.Scanner(r)
+	for sc.Scan() {
+		if modverCommentRegex.MatchString(sc.Text()) {
+			return true
+		}
+	}
+	return false
 }
 
 func createComment(ctx context.Context, gh *github.Client, repo *github.Repository, pr *github.PullRequest, result modver.Result) error {
