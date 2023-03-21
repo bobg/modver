@@ -10,22 +10,22 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.18
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.18
 
-    - name: Unit tests
-      run: go test -v -coverprofile=cover.out ./...
+      - name: Unit tests
+        run: go test -coverprofile=cover.out ./...
 
-    - name: Send coverage
-      uses: shogo82148/actions-goveralls@v1
-      with:
-        path-to-profile: cover.out
+      - name: Modver
+        if: ${{ github.event_name == 'pull_request' }}
+        run: go run ./cmd/modver -pr https://github.com/${{ github.repository }}/pull/${{ github.event.number }} -token ${{ github.token }} -pretty
 
-    - name: Version string check
-      run: go run ./cmd/modver -git `pwd`/.git -versions HEAD~1 HEAD
+      - name: Send coverage
+        uses: shogo82148/actions-goveralls@v1
+        with:
+          path-to-profile: cover.out
