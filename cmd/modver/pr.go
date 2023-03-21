@@ -62,7 +62,7 @@ var modverCommentRegex = regexp.MustCompile(`^# Modver result$`)
 func isModverComment(comment *github.IssueComment) bool {
 	var r io.Reader = strings.NewReader(*comment.Body)
 	r = &io.LimitedReader{R: r, N: 1024}
-	sc := bufio.Scanner(r)
+	sc := bufio.NewScanner(r)
 	for sc.Scan() {
 		if modverCommentRegex.MatchString(sc.Text()) {
 			return true
