@@ -17,11 +17,29 @@ import (
 )
 
 func doPR(ctx context.Context, gh *github.Client, owner, reponame string, prnum int) (modver.Result, error) {
-	repo, _, err := gh.Repositories.Get(ctx, owner, reponame)
+	return doPRHelper(ctx, gh.Repositories, gh.PullRequests, gh.Issues, owner, reponame, prnum)
+}
+
+type reposIntf interface {
+	Get(ctx context.Context, owner, reponame string) (*github.Repository, *github.Response, error)
+}
+
+type prsIntf interface {
+	Get(ctx context.Context, owner, reponame string, number int) (*github.PullRequest, *github.Response, error)
+}
+
+type issuesIntf interface {
+	createCommenter
+	editCommenter
+	ListComments(ctx context.Context, owner, reponame string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error)
+}
+
+func doPRHelper(ctx context.Context, repos reposIntf, prs prsIntf, issues issuesIntf, owner, reponame string, prnum int) (modver.Result, error) {
+	repo, _, err := repos.Get(ctx, owner, reponame)
 	if err != nil {
 		return modver.None, errors.Wrap(err, "getting repository")
 	}
-	pr, _, err := gh.PullRequests.Get(ctx, owner, reponame, prnum)
+	pr, _, err := prs.Get(ctx, owner, reponame, prnum)
 	if err != nil {
 		return modver.None, errors.Wrap(err, "getting pull request")
 	}
@@ -29,32 +47,20 @@ func doPR(ctx context.Context, gh *github.Client, owner, reponame string, prnum 
 	if err != nil {
 		return modver.None, errors.Wrap(err, "comparing versions")
 	}
-	comments, _, err := gh.Issues.ListComments(ctx, owner, reponame, prnum, nil)
+	comments, _, err := issues.ListComments(ctx, owner, reponame, prnum, nil)
 	if err != nil {
 		return modver.None, errors.Wrap(err, "listing PR comments")
 	}
 
-	var comment *github.IssueComment
 	for _, c := range comments {
 		if isModverComment(c) {
-			comment = c
-			break
+			err = updateComment(ctx, issues, repo, c, result)
+			return result, errors.Wrap(err, "updating PR comment")
 		}
 	}
 
-	if comment != nil {
-		err = updateComment(ctx, gh, repo, comment, result)
-		if err != nil {
-			return modver.None, errors.Wrap(err, "updating PR comment")
-		}
-	} else {
-		err = createComment(ctx, gh, repo, pr, result)
-		if err != nil {
-			return modver.None, errors.Wrap(err, "creating PR comment")
-		}
-	}
-
-	return result, nil
+	err = createComment(ctx, issues, repo, pr, result)
+	return result, errors.Wrap(err, "creating PR comment")
 }
 
 var modverCommentRegex = regexp.MustCompile(`^# Modver result$`)
@@ -71,7 +77,11 @@ func isModverComment(comment *github.IssueComment) bool {
 	return false
 }
 
-func createComment(ctx context.Context, gh *github.Client, repo *github.Repository, pr *github.PullRequest, result modver.Result) error {
+type createCommenter interface {
+	CreateComment(ctx context.Context, owner, reponame string, num int, comment *github.IssueComment) (*github.IssueComment, *github.Response, error)
+}
+
+func createComment(ctx context.Context, issues createCommenter, repo *github.Repository, pr *github.PullRequest, result modver.Result) error {
 	body, err := commentBody(result)
 	if err != nil {
 		return errors.Wrap(err, "rendering comment body")
@@ -79,11 +89,15 @@ func createComment(ctx context.Context, gh *github.Client, repo *github.Reposito
 	comment := &github.IssueComment{
 		Body: &body,
 	}
-	_, _, err = gh.Issues.CreateComment(ctx, *repo.Owner.Login, *repo.Name, *pr.Number, comment)
+	_, _, err = issues.CreateComment(ctx, *repo.Owner.Login, *repo.Name, *pr.Number, comment)
 	return errors.Wrap(err, "creating GitHub comment")
 }
 
-func updateComment(ctx context.Context, gh *github.Client, repo *github.Repository, comment *github.IssueComment, result modver.Result) error {
+type editCommenter interface {
+	EditComment(ctx context.Context, owner, reponame string, commentID int64, newComment *github.IssueComment) (*github.IssueComment, *github.Response, error)
+}
+
+func updateComment(ctx context.Context, issues editCommenter, repo *github.Repository, comment *github.IssueComment, result modver.Result) error {
 	body, err := commentBody(result)
 	if err != nil {
 		return errors.Wrap(err, "rendering comment body")
@@ -91,7 +105,7 @@ func updateComment(ctx context.Context, gh *github.Client, repo *github.Reposito
 	newComment := &github.IssueComment{
 		Body: &body,
 	}
-	_, _, err = gh.Issues.EditComment(ctx, *repo.Owner.Login, *repo.Name, *comment.ID, newComment)
+	_, _, err = issues.EditComment(ctx, *repo.Owner.Login, *repo.Name, *comment.ID, newComment)
 	return errors.Wrap(err, "editing GitHub comment")
 }
 
