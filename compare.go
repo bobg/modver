@@ -303,9 +303,8 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 		cloneOpts := &git.CloneOptions{URL: repoURL, NoCheckout: true}
 		repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
 		if err != nil {
-			return fmt.Errorf("cloning %s into %s: %w", repoURL, dir, err)
+			return cloneBugErr{repoURL: repoURL, dir: dir, err: err}
 		}
-		_, _ = repo.ResolveRevision(plumbing.Revision(plumbing.ZeroHash.String())) // Workaround for go-git issue. See https://github.com/go-git/go-git/issues/726#issuecomment-1488353200.
 		worktree, err := repo.Worktree()
 		if err != nil {
 			return fmt.Errorf("getting worktree from %s: %w", dir, err)
@@ -321,4 +320,17 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 	}
 
 	return nil
+}
+
+type cloneBugErr struct {
+	repoURL, dir string
+	err          error
+}
+
+func (cb cloneBugErr) Error() string {
+	return fmt.Sprintf("cloning %s into %s: %s", cb.repoURL, cb.dir, cb.err)
+}
+
+func (cb cloneBugErr) Unwrap() error {
+	return cb.err
 }
