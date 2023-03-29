@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
 )
 
@@ -14,17 +15,25 @@ type options struct {
 	quiet, pretty, versions              bool
 }
 
-func parseArgs() (opts options, err error) {
-	flag.BoolVar(&opts.pretty, "pretty", false, "result is shown in a pretty format with (possibly) multiple lines and indentation")
-	flag.BoolVar(&opts.quiet, "q", false, "quiet mode: prints no output, exits with status 0, 1, 2, 3, or 4 to mean None, Patchlevel, Minor, Major, or error")
-	flag.BoolVar(&opts.versions, "versions", false, "with -git, compute values for -v1 and -v2 from the Git repository")
-	flag.StringVar(&opts.ghtoken, "token", os.Getenv("GITHUB_TOKEN"), "GitHub access token")
-	flag.StringVar(&opts.gitCmd, "gitcmd", "git", "use this command for git operations, if found; otherwise use the go-git library")
-	flag.StringVar(&opts.gitRepo, "git", "", "Git repo URL")
-	flag.StringVar(&opts.pr, "pr", "", "URL of GitHub pull request")
-	flag.StringVar(&opts.v1, "v1", "", "version string of older version; with -v2 changes output to OK (exit status 0) for adequate version-number change, ERR (exit status 1) for inadequate")
-	flag.StringVar(&opts.v2, "v2", "", "version string of newer version")
-	flag.Parse()
+func parseArgs() (options, error) {
+	return parseArgsHelper(os.Args)
+}
+
+func parseArgsHelper(args []string) (opts options, err error) {
+	var fs flag.FlagSet
+
+	fs.BoolVar(&opts.pretty, "pretty", false, "result is shown in a pretty format with (possibly) multiple lines and indentation")
+	fs.BoolVar(&opts.quiet, "q", false, "quiet mode: prints no output, exits with status 0, 1, 2, 3, or 4 to mean None, Patchlevel, Minor, Major, or error")
+	fs.BoolVar(&opts.versions, "versions", false, "with -git, compute values for -v1 and -v2 from the Git repository")
+	fs.StringVar(&opts.ghtoken, "token", os.Getenv("GITHUB_TOKEN"), "GitHub access token")
+	fs.StringVar(&opts.gitCmd, "gitcmd", "git", "use this command for git operations, if found; otherwise use the go-git library")
+	fs.StringVar(&opts.gitRepo, "git", "", "Git repo URL")
+	fs.StringVar(&opts.pr, "pr", "", "URL of GitHub pull request")
+	fs.StringVar(&opts.v1, "v1", "", "version string of older version; with -v2 changes output to OK (exit status 0) for adequate version-number change, ERR (exit status 1) for inadequate")
+	fs.StringVar(&opts.v2, "v2", "", "version string of newer version")
+	if err := fs.Parse(args); err != nil {
+		return opts, errors.Wrap(err, "parsing args")
+	}
 
 	if opts.pr != "" {
 		if opts.gitRepo != "" {
