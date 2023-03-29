@@ -47,6 +47,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 
 	"golang.org/x/mod/semver"
@@ -74,10 +75,11 @@ func main() {
 		os.Exit(errorStatus)
 	}
 
-	doShowResultExit(res, opts)
+	exitCode := doShowResult(os.Stdout, res, opts)
+	os.Exit(exitCode)
 }
 
-func doShowResultExit(res modver.Result, opts options) {
+func doShowResult(out io.Writer, res modver.Result, opts options) int {
 	if opts.v1 != "" && opts.v2 != "" {
 		var ok bool
 
@@ -107,30 +109,32 @@ func doShowResultExit(res modver.Result, opts options) {
 		if ok {
 			if !opts.quiet {
 				if opts.versions {
-					fmt.Printf("OK using versions %s and %s: %s\n", opts.v1, opts.v2, res)
+					fmt.Fprintf(out, "OK using versions %s and %s: %s\n", opts.v1, opts.v2, res)
 				} else {
-					fmt.Printf("OK %s\n", res)
+					fmt.Fprintf(out, "OK %s\n", res)
 				}
 			}
-			os.Exit(0)
+			return 0
 		}
 		if !opts.quiet {
 			if opts.versions {
-				fmt.Printf("ERR using versions %s and %s: %s\n", opts.v1, opts.v2, res)
+				fmt.Fprintf(out, "ERR using versions %s and %s: %s\n", opts.v1, opts.v2, res)
 			} else {
-				fmt.Printf("ERR %s\n", res)
+				fmt.Fprintf(out, "ERR %s\n", res)
 			}
 		}
-		os.Exit(1)
+		return 1
 	}
 
 	if opts.quiet {
-		os.Exit(int(res.Code()))
+		return int(res.Code())
 	}
 
 	if opts.pretty {
-		modver.Pretty(os.Stdout, res)
+		modver.Pretty(out, res)
 	} else {
-		fmt.Println(res)
+		fmt.Fprintln(out, res)
 	}
+
+	return 0
 }
