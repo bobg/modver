@@ -16,7 +16,7 @@ type options struct {
 }
 
 func parseArgs() (options, error) {
-	return parseArgsHelper(os.Args)
+	return parseArgsHelper(os.Args[1:])
 }
 
 func parseArgsHelper(args []string) (opts options, err error) {
