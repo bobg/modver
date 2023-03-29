@@ -192,7 +192,7 @@ func TestGit(t *testing.T) {
 	ctx := context.Background()
 
 	// Do it once with the go-git library.
-	if os.Getenv("GITHUB_ACTIONS") == "true" {
+	if os.Getenv("GITHUB_ACTIONS") != "true" {
 		// For some reason, the go-git library fails when running under GitHub Actions.
 		// TODO: figure out why.
 		res, err := CompareGit(ctx, gitDir, "HEAD", "HEAD")
