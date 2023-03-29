@@ -5,9 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -23,22 +21,9 @@ import (
 
 func doCompare(ctx context.Context, opts options) (modver.Result, error) {
 	if opts.pr != "" {
-		u, err := url.Parse(opts.pr)
+		owner, reponame, prnum, err := parsePR(opts.pr)
 		if err != nil {
-			return modver.None, errors.Wrap(err, "parsing GitHub pull-request URL")
-		}
-		path := strings.TrimLeft(u.Path, "/")
-		parts := strings.Split(path, "/")
-		if len(parts) < 4 {
-			return modver.None, fmt.Errorf("too few path elements in pull-request URL (got %d, want 4)", len(parts))
-		}
-		if parts[2] != "pull" {
-			return modver.None, fmt.Errorf("pull-request URL not in expected format")
-		}
-		owner, reponame := parts[0], parts[1]
-		prnum, err := strconv.Atoi(parts[3])
-		if err != nil {
-			return modver.None, errors.Wrap(err, "parsing number from GitHub pull-request URL")
+			return modver.None, errors.Wrap(err, "parsing pull-request URL")
 		}
 		if opts.ghtoken == "" {
 			return modver.None, fmt.Errorf("usage: %s -pr URL -token TOKEN [-q | -pretty]", os.Args[0])

@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -60,4 +62,26 @@ func parseArgsHelper(args []string) (opts options, err error) {
 	}
 
 	return opts, nil
+}
+
+func parsePR(pr string) (owner, reponame string, prnum int, err error) {
+	u, err := url.Parse(pr)
+	if err != nil {
+		err = errors.Wrap(err, "parsing GitHub pull-request URL")
+		return
+	}
+	path := strings.TrimLeft(u.Path, "/")
+	parts := strings.Split(path, "/")
+	if len(parts) < 4 {
+		err = fmt.Errorf("too few path elements in pull-request URL (got %d, want 4)", len(parts))
+		return
+	}
+	if parts[2] != "pull" {
+		err = fmt.Errorf("pull-request URL not in expected format")
+		return
+	}
+	owner, reponame = parts[0], parts[1]
+	prnum, err = strconv.Atoi(parts[3])
+	err = errors.Wrap(err, "parsing number from GitHub pull-request URL")
+	return
 }
