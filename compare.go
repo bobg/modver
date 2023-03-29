@@ -305,6 +305,7 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 		if err != nil {
 			return fmt.Errorf("cloning %s into %s: %w", repoURL, dir, err)
 		}
+		_, _ = repo.ResolveRevision(plumbing.Revision(plumbing.ZeroHash.String())) // Workaround for go-git issue. See https://github.com/go-git/go-git/issues/726#issuecomment-1488353200.
 		worktree, err := repo.Worktree()
 		if err != nil {
 			return fmt.Errorf("getting worktree from %s: %w", dir, err)
