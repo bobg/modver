@@ -5,9 +5,9 @@
 //
 // Usage:
 //
-//		modver -git REPO [-gitcmd GIT_COMMAND] [-q | -pretty] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
-//		modver [-q | -pretty] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR
-//	 modver -pr URL [-q | -pretty]
+//	modver -git REPO [-gitcmd GIT_COMMAND] [-q | -pretty] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
+//	modver [-q | -pretty] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR
+//	modver -pr URL [-q | -pretty]
 //
 // With `-git REPO`,
 // where REPO is the path to a Git repository,
