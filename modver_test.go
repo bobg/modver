@@ -206,7 +206,7 @@ func TestGit(t *testing.T) {
 
 	// Now with the git binary.
 	ctx = WithGit(ctx, "git")
-	res, err = CompareGit(ctx, gitDir, "HEAD", "HEAD")
+	res, err := CompareGit(ctx, gitDir, "HEAD", "HEAD")
 	if err != nil {
 		t.Fatal(err)
 	}
