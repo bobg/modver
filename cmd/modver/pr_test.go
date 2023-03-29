@@ -12,24 +12,46 @@ import (
 
 func TestPRHelper(t *testing.T) {
 	var (
-		ctx    = context.Background()
-		repos  mockReposService
-		prs    mockPRsService
-		issues mockIssuesService
+		ctx   = context.Background()
+		repos mockReposService
+		prs   mockPRsService
 	)
-	result, err := prHelper(ctx, repos, prs, &issues, mockComparer(modver.Minor), "owner", "repo", 17)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Code() != modver.Minor {
-		t.Fatalf("got result %s, want %s", result, modver.Minor)
-	}
-	if !strings.HasPrefix(issues.body, "# Modver result") {
-		t.Error("issues.body does not start with # Modver result")
-	}
-	if issues.commentID != 0 {
-		t.Errorf("issues.commentID is %d, want 0", issues.commentID)
-	}
+
+	t.Run("new-comment", func(t *testing.T) {
+		var issues mockIssuesService
+
+		result, err := prHelper(ctx, repos, prs, &issues, mockComparer(modver.Minor), "owner", "repo", 17)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Code() != modver.Minor {
+			t.Fatalf("got result %s, want %s", result, modver.Minor)
+		}
+		if !strings.HasPrefix(issues.body, "# Modver result") {
+			t.Error("issues.body does not start with # Modver result")
+		}
+		if issues.commentID != 0 {
+			t.Errorf("issues.commentID is %d, want 0", issues.commentID)
+		}
+	})
+
+	t.Run("new-comment", func(t *testing.T) {
+		issues := mockIssuesService{update: true}
+
+		result, err := prHelper(ctx, repos, prs, &issues, mockComparer(modver.Minor), "owner", "repo", 17)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Code() != modver.Minor {
+			t.Fatalf("got result %s, want %s", result, modver.Minor)
+		}
+		if !strings.HasPrefix(issues.body, "# Modver result") {
+			t.Error("issues.body does not start with # Modver result")
+		}
+		if issues.commentID != 2 {
+			t.Errorf("issues.commentID is %d, want 0", issues.commentID)
+		}
+	})
 }
 
 type mockReposService struct{}
@@ -55,6 +77,7 @@ func (mockPRsService) Get(ctx context.Context, owner, reponame string, number in
 }
 
 type mockIssuesService struct {
+	update      bool
 	owner, repo string
 	commentID   int64
 	body        string
@@ -81,6 +104,12 @@ func (m *mockIssuesService) ListComments(ctx context.Context, owner, reponame st
 		ID:   ptr(int64(1)),
 		Body: ptr("not a modver comment"),
 	}}
+	if m.update {
+		result = append(result, &github.IssueComment{
+			ID:   ptr(int64(2)),
+			Body: ptr("# Modver result\n\nwoop"),
+		})
+	}
 	return result, nil, nil
 }
 
