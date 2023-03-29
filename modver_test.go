@@ -175,10 +175,6 @@ func executeTmplToFile(tmpl *template.Template, filename string) error {
 }
 
 func TestGit(t *testing.T) {
-	if os.Getenv("GITHUB_ACTIONS") == "true" {
-		t.Skip() // xxx must figure out why this test fails in GitHub Actions
-	}
-
 	pwd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
