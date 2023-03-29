@@ -22,9 +22,9 @@ jobs:
     - name: Unit tests
       run: go test -v -coverprofile=cover.out ./...
 
-      - name: Modver
-        if: ${{ github.event_name == 'pull_request' }}
-        run: go run ./cmd/modver -pr https://github.com/${{ github.repository }}/pull/${{ github.event.number }} -token ${{ github.token }} -pretty
+    - name: Modver
+      if: ${{ github.event_name == 'pull_request' }}
+      run: go run ./cmd/modver -pr https://github.com/${{ github.repository }}/pull/${{ github.event.number }} -token ${{ github.token }} -pretty
 
     - name: Send coverage
       uses: shogo82148/actions-goveralls@v1
