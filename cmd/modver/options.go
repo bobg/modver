@@ -15,6 +15,7 @@ import (
 type options struct {
 	gitRepo, gitCmd, ghtoken, v1, v2, pr string
 	quiet, pretty, versions              bool
+	args                                 []string
 }
 
 func parseArgs() (options, error) {
@@ -36,6 +37,7 @@ func parseArgsHelper(args []string) (opts options, err error) {
 	if err := fs.Parse(args); err != nil {
 		return opts, errors.Wrap(err, "parsing args")
 	}
+	opts.args = fs.Args()
 
 	if opts.pr != "" {
 		if opts.gitRepo != "" {

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -65,7 +66,10 @@ func TestParseArgs(t *testing.T) {
 			if tc.wantErr {
 				t.Fatal("got no error but wanted one")
 			}
-			if got != tc.want {
+			if len(got.args) == 0 {
+				got.args = nil // not []string{}
+			}
+			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("got %+v, want %+v", got, tc.want)
 			}
 		})
