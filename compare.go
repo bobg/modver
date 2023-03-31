@@ -314,7 +314,7 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 		cloneOpts := &git.CloneOptions{URL: repoURL, NoCheckout: true}
 		repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
 		if err != nil {
-			return fmt.Errorf("cloning %s into %s: %w", repoURL, dir, err)
+			return cloneBugErr{repoURL: repoURL, dir: dir, err: err}
 		}
 		worktree, err := repo.Worktree()
 		if err != nil {
@@ -331,4 +331,17 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 	}
 
 	return nil
+}
+
+type cloneBugErr struct {
+	repoURL, dir string
+	err          error
+}
+
+func (cb cloneBugErr) Error() string {
+	return fmt.Sprintf("cloning %s into %s: %s", cb.repoURL, cb.dir, cb.err)
+}
+
+func (cb cloneBugErr) Unwrap() error {
+	return cb.err
 }
