@@ -18,7 +18,7 @@ func doCompare(ctx context.Context, opts options) (modver.Result, error) {
 			return modver.None, errors.Wrap(err, "parsing pull-request URL")
 		}
 		if opts.ghtoken == "" {
-			return modver.None, fmt.Errorf("usage: %s -pr URL -token TOKEN [-q | -pretty]", os.Args[0])
+			return modver.None, fmt.Errorf("usage: %s -pr URL [-token TOKEN]", os.Args[0])
 		}
 		gh := github.NewTokenClient(ctx, opts.ghtoken)
 		return doPR(ctx, gh, owner, reponame, prnum)
