@@ -17,6 +17,10 @@ import (
 )
 
 func getTags(v1, v2 *string, olderRev, newerRev string) func(older, newer string) (modver.Result, error) {
+	return getTagsHelper(v1, v2, olderRev, newerRev, modver.CompareDirs)
+}
+
+func getTagsHelper(v1, v2 *string, olderRev, newerRev string, compareDirs compareDirsType) func(older, newer string) (modver.Result, error) {
 	return func(older, newer string) (modver.Result, error) {
 		tag, err := getTag(older, olderRev)
 		if err != nil {
@@ -30,7 +34,7 @@ func getTags(v1, v2 *string, olderRev, newerRev string) func(older, newer string
 		}
 		*v2 = tag
 
-		return modver.CompareDirs(older, newer)
+		return compareDirs(older, newer)
 	}
 }
 
