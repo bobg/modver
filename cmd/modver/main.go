@@ -5,9 +5,18 @@
 //
 // Usage:
 //
+//	modver -pr URL [-token GITHUB_TOKEN]
 //	modver -git REPO [-gitcmd GIT_COMMAND] [-q | -pretty] [-v1 OLDERVERSION -v2 NEWERVERSION | -versions] OLDERREV NEWERREV
 //	modver [-q | -pretty] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR
-//	modver -pr URL [-q | -pretty]
+//
+// With `-pr URL`,
+// the URL must be that of a github.com pull request
+// (having the form https://github.com/OWNER/REPO/pull/NUMBER).
+// The environment variable GITHUB_TOKEN must contain a valid GitHub access token,
+// or else one must be supplied on the command line with -token.
+// In this mode,
+// modver compares the base of the pull-request branch with the head
+// and produces a report that it adds as a comment to the pull request.
 //
 // With `-git REPO`,
 // where REPO is the path to a Git repository,
