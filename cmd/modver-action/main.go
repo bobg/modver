@@ -15,9 +15,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	token := os.Getenv("GITHUB_TOKEN")
+	token := os.Getenv("INPUT_GITHUB_TOKEN")
 	if token == "" {
-		log.Fatal("No GitHub token in the environment variable GITHUB_TOKEN")
+		log.Fatal("No GitHub token in the environment variable INPUT_GITHUB_TOKEN")
 	}
 	ctx := context.Background()
 	gh, err := internal.NewClient(ctx, host, token)
