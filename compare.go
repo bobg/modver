@@ -87,7 +87,14 @@ func Compare(olders, newers []*packages.Package) Result {
 }
 
 func isPublic(pkgpath string) bool {
+	switch pkgpath {
+	case "internal", "main":
+		return false
+	}
 	if strings.HasSuffix(pkgpath, "/main") {
+		return false
+	}
+	if strings.HasPrefix(pkgpath, "internal/") {
 		return false
 	}
 	if strings.HasSuffix(pkgpath, "/internal") {
