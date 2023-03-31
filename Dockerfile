@@ -4,4 +4,6 @@ ADD . /app
 
 WORKDIR /app
 
-ENTRYPOINT ["/app/action.sh"]
+RUN go build ./cmd/modver-action
+
+ENTRYPOINT ["/app/modver-action"]

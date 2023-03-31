@@ -1,11 +1,32 @@
 package main
 
+import (
+	"context"
+	"log"
+	"os"
+
+	"github.com/bobg/modver/v2"
+	"github.com/bobg/modver/v2/internal"
+)
+
 func main() {
 	prURL := os.Getenv("INPUT_PULL_REQUEST_URL")
-	owner, reponame, prnum, err := modver.ParsePR(prURL)
+	host, owner, reponame, prnum, err := internal.ParsePR(prURL)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	ghToken := os.Getenv("GITHUB_TOKEN")
+	token := os.Getenv("GITHUB_TOKEN")
+	if token == "" {
+		log.Fatal("No GitHub token in the environment variable GITHUB_TOKEN")
+	}
+	ctx := context.Background()
+	gh, err := internal.NewClient(ctx, host, token)
+	if err != nil {
+		log.Fatalf("Creating GitHub client: %s", err)
+	}
+	result, err := internal.PR(ctx, gh, owner, reponame, prnum)
+	if err != nil {
+		log.Fatalf("Running comparison: %s", err)
+	}
+	modver.Pretty(os.Stdout, result)
 }

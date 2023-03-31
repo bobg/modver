@@ -5,23 +5,26 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/google/go-github/v50/github"
 	"github.com/pkg/errors"
 
 	"github.com/bobg/modver/v2"
+	"github.com/bobg/modver/v2/internal"
 )
 
 func doCompare(ctx context.Context, opts options) (modver.Result, error) {
 	if opts.pr != "" {
-		owner, reponame, prnum, err := parsePR(opts.pr)
+		host, owner, reponame, prnum, err := internal.ParsePR(opts.pr)
 		if err != nil {
 			return modver.None, errors.Wrap(err, "parsing pull-request URL")
 		}
 		if opts.ghtoken == "" {
 			return modver.None, fmt.Errorf("usage: %s -pr URL [-token TOKEN]", os.Args[0])
 		}
-		gh := github.NewTokenClient(ctx, opts.ghtoken)
-		return doPR(ctx, gh, owner, reponame, prnum)
+		gh, err := internal.NewClient(ctx, host, opts.ghtoken)
+		if err != nil {
+			return modver.None, errors.Wrap(err, "creating GitHub client")
+		}
+		return internal.PR(ctx, gh, owner, reponame, prnum)
 	}
 
 	if opts.gitRepo != "" {

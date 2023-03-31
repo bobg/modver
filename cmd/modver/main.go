@@ -11,7 +11,7 @@
 //
 // With `-pr URL`,
 // the URL must be that of a github.com pull request
-// (having the form https://github.com/OWNER/REPO/pull/NUMBER).
+// (having the form https://HOST/OWNER/REPO/pull/NUMBER).
 // The environment variable GITHUB_TOKEN must contain a valid GitHub access token,
 // or else one must be supplied on the command line with -token.
 // In this mode,

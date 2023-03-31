@@ -5,6 +5,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/bobg/modver/v2/internal"
 )
 
 func TestParseArgs(t *testing.T) {
@@ -78,10 +80,10 @@ func TestParseArgs(t *testing.T) {
 
 func TestParsePR(t *testing.T) {
 	cases := []struct {
-		inp             string
-		wantErr         bool
-		owner, reponame string
-		prnum           int
+		inp                   string
+		wantErr               bool
+		host, owner, reponame string
+		prnum                 int
 	}{{
 		wantErr: true,
 	}, {
@@ -92,6 +94,7 @@ func TestParsePR(t *testing.T) {
 		wantErr: true,
 	}, {
 		inp:      "https://github.com/bobg/modver/pull/17",
+		host:     "github.com",
 		owner:    "bobg",
 		reponame: "modver",
 		prnum:    17,
@@ -99,7 +102,7 @@ func TestParsePR(t *testing.T) {
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("case_%02d", i+1), func(t *testing.T) {
-			owner, reponame, prnum, err := parsePR(tc.inp)
+			host, owner, reponame, prnum, err := internal.ParsePR(tc.inp)
 			if err != nil {
 				if !tc.wantErr {
 					t.Errorf("got error %v, wanted no error", err)
@@ -108,6 +111,9 @@ func TestParsePR(t *testing.T) {
 			}
 			if tc.wantErr {
 				t.Fatal("got no error but wanted one")
+			}
+			if host != tc.host {
+				t.Errorf("got host %s, want %s", host, tc.host)
 			}
 			if owner != tc.owner {
 				t.Errorf("got owner %s, want %s", owner, tc.owner)
