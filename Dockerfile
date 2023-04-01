@@ -1,7 +1,8 @@
 FROM golang:latest
 
+VOLUME $GOROOT
+
 ADD . /app
-ADD $GOROOT $GOROOT
 
 WORKDIR /app
 
