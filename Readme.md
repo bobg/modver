@@ -6,16 +6,23 @@
 [![Coverage Status](https://coveralls.io/repos/github/bobg/modver/badge.svg?branch=master)](https://coveralls.io/github/bobg/modver?branch=master)
 
 This is modver,
-a Go package and command that helps you obey [semantic versioning rules](https://semver.org/) in your Go module.
+a tool that helps you obey [semantic versioning rules](https://semver.org/) in your Go module.
 
 It can read and compare two different versions of the same module,
 from two different directories,
-or two different Git commits.
+or two different Git commits,
+or the base and head of a Git pull request.
 It then reports whether the changes require an increase in the major-version number,
 the minor-version number,
 or the patchlevel.
 
 ## Installation and usage
+
+Modver can be used from the command line,
+or in your Go program,
+or with [GitHub Actions](https://github.com/features/actions).
+
+### Command-line interface
 
 Install the `modver` command like this:
 
@@ -37,7 +44,68 @@ The arguments `HEAD~1` and `HEAD` specify two Git revisions to compare;
 in this case, the latest two commits on the current branch.
 These could also be tags or commit hashes.
 
+### GitHub Action
+
+You can arrange for Modver to inspect the changes on your pull-request branch
+as part of a GitHub Actions-based continuous-integration step.
+It will add a comment to the pull request with its findings,
+and will update the comment as new commits are pushed to the branch.
+
+To do this, you’ll need a directory in your GitHub repository named `.github/workflows`,
+and a Yaml file containing (at least) the following:
+
+```yaml
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.19
+
+      - name: Modver
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: bobg/modver@v2.5.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pull_request_url: https://github.com/${{ github.repository }}/pull/${{ github.event.number }}
+```
+
+This can be combined with other steps that run unit tests, etc.
+You can change `Tests` to whatever name you like,
+and should change `main` to the name of your repository’s default branch.
+If your pull request is on a GitHub server other than `github.com`,
+change the hostname in the `pull_request_url` parameter to match.
+
+Note the `fetch-depth: 0` parameter for the `Checkout` step.
+This causes GitHub Actions to create a clone of your repo with its full history,
+as opposed to the default,
+which is a shallow clone.
+Modver requires enough history to be present in the clone
+for it to access the “base” and “head” revisions of your pull-request branch.
+
+For more information about configuring GitHub Actions,
+see [the GitHub Actions documentation](https://docs.github.com/actions).
+
+### Go library
+
 Modver also has a simple API for use from within Go programs.
+Add it to your project with `go get github.com/bobg/modver/v2@latest`.
+See [the Go doc page](https://pkg.go.dev/github.com/bobg/modver/v2) for information about how to use it.
 
 ## Semantic versioning
 
