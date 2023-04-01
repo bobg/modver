@@ -26,7 +26,7 @@ func main() {
 			return nil
 		}
 		fmt.Printf("FOUND %s\n", path)
-		return filepath.SkipAll
+		return nil
 	})
 	if err != nil && !errors.Is(err, filepath.SkipAll) {
 		log.Fatalf("Looking for unsafe: %s", err)
