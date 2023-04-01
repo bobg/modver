@@ -1,20 +1,24 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 	"log"
 	"os"
+	"os/exec"
 
 	"github.com/bobg/modver/v2"
 	"github.com/bobg/modver/v2/internal"
 )
 
 func main() {
-	if goRoot := os.Getenv("GOROOT"); goRoot != "" {
-		// So packages.Load can find the "go" command.
-		os.Setenv("PATH", fmt.Sprintf("%s:%s/bin", os.Getenv("PATH"), goRoot))
+	goroot, err := exec.Command("go", "env", "GOROOT").Output()
+	if err != nil {
+		log.Fatalf("Running go env GOROOT: %s", err)
 	}
+	goroot = bytes.TrimSpace(goroot)
+	os.Setenv("GOROOT", string(goroot))
+
 	prURL := os.Getenv("INPUT_PULL_REQUEST_URL")
 	host, owner, reponame, prnum, err := internal.ParsePR(prURL)
 	if err != nil {
