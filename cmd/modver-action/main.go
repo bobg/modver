@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
@@ -10,6 +11,10 @@ import (
 )
 
 func main() {
+	if goRoot := os.Getenv("GOROOT"); goRoot != "" {
+		// So packages.Load can find the "go" command.
+		os.Setenv("PATH", fmt.Sprintf("%s:%s/bin", os.Getenv("PATH"), goRoot))
+	}
 	prURL := os.Getenv("INPUT_PULL_REQUEST_URL")
 	host, owner, reponame, prnum, err := internal.ParsePR(prURL)
 	if err != nil {
