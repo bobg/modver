@@ -14,9 +14,9 @@ func TestDoCompare(t *testing.T) {
 	cases := []struct {
 		opts           options
 		wantErr        bool
-		pr             func(t *testing.T) prType
-		compareGitWith func(t *testing.T) compareGitWithType
-		compareDirs    func(t *testing.T) compareDirsType
+		pr             func(*testing.T, *int) prType
+		compareGitWith func(*testing.T, *int) compareGitWithType
+		compareDirs    func(*testing.T, *int) compareDirsType
 	}{{
 		opts: options{
 			pr:      "https://github.com/foo/bar/pull/17",
@@ -25,15 +25,37 @@ func TestDoCompare(t *testing.T) {
 		pr: mockPR("foo", "bar", 17),
 	}, {
 		opts: options{
+			pr:      "https://github.com/foo/bar/baz/pull/17",
+			ghtoken: "token",
+		},
+		wantErr: true,
+	}, {
+		opts: options{
+			pr: "https://github.com/foo/bar/pull/17",
+		},
+		wantErr: true,
+	}, {
+		opts: options{
 			gitRepo: ".git",
 			args:    []string{"older", "newer"},
 		},
 		compareGitWith: mockCompareGitWith(".git", "older", "newer"),
 	}, {
 		opts: options{
+			gitRepo: ".git",
+			args:    []string{"older", "newer", "evenmorenewer"},
+		},
+		wantErr: true,
+	}, {
+		opts: options{
 			args: []string{"older", "newer"},
 		},
 		compareDirs: mockCompareDirs("older", "newer"),
+	}, {
+		opts: options{
+			args: []string{"older"},
+		},
+		wantErr: true,
 	}}
 
 	ctx := context.Background()
@@ -44,15 +66,16 @@ func TestDoCompare(t *testing.T) {
 				pr             prType
 				compareGitWith compareGitWithType
 				compareDirs    compareDirsType
+				calls          int
 			)
 			if tc.pr != nil {
-				pr = tc.pr(t)
+				pr = tc.pr(t, &calls)
 			}
 			if tc.compareGitWith != nil {
-				compareGitWith = tc.compareGitWith(t)
+				compareGitWith = tc.compareGitWith(t, &calls)
 			}
 			if tc.compareDirs != nil {
-				compareDirs = tc.compareDirs(t)
+				compareDirs = tc.compareDirs(t, &calls)
 			}
 
 			_, err := doCompareHelper(ctx, tc.opts, mockNewClient, pr, compareGitWith, compareDirs)
@@ -66,6 +89,9 @@ func TestDoCompare(t *testing.T) {
 				t.Error("got no error, wanted one")
 				return
 			}
+			if calls != 1 {
+				t.Errorf("got %d calls, want 1", calls)
+			}
 		})
 	}
 }
@@ -74,9 +100,10 @@ func mockNewClient(ctx context.Context, host, token string) (*github.Client, err
 	return nil, nil
 }
 
-func mockPR(wantOwner, wantRepo string, wantPRNum int) func(t *testing.T) prType {
-	return func(t *testing.T) prType {
+func mockPR(wantOwner, wantRepo string, wantPRNum int) func(*testing.T, *int) prType {
+	return func(t *testing.T, calls *int) prType {
 		return func(ctx context.Context, gh *github.Client, owner, reponame string, prnum int) (modver.Result, error) {
+			*calls++
 			if owner != wantOwner {
 				t.Errorf("got owner %s, want %s", owner, wantOwner)
 			}
@@ -91,9 +118,10 @@ func mockPR(wantOwner, wantRepo string, wantPRNum int) func(t *testing.T) prType
 	}
 }
 
-func mockCompareGitWith(wantGitRepo, wantOlder, wantNewer string) func(t *testing.T) compareGitWithType {
-	return func(t *testing.T) compareGitWithType {
+func mockCompareGitWith(wantGitRepo, wantOlder, wantNewer string) func(*testing.T, *int) compareGitWithType {
+	return func(t *testing.T, calls *int) compareGitWithType {
 		return func(ctx context.Context, repoURL, olderRev, newerRev string, f func(older, newer string) (modver.Result, error)) (modver.Result, error) {
+			*calls++
 			if repoURL != wantGitRepo {
 				t.Errorf("got repo URL %s, want %s", repoURL, wantGitRepo)
 			}
@@ -108,9 +136,10 @@ func mockCompareGitWith(wantGitRepo, wantOlder, wantNewer string) func(t *testin
 	}
 }
 
-func mockCompareDirs(wantOlder, wantNewer string) func(t *testing.T) compareDirsType {
-	return func(t *testing.T) compareDirsType {
+func mockCompareDirs(wantOlder, wantNewer string) func(*testing.T, *int) compareDirsType {
+	return func(t *testing.T, calls *int) compareDirsType {
 		return func(older, newer string) (modver.Result, error) {
+			*calls++
 			if older != wantOlder {
 				t.Errorf("got older dir %s, want %s", older, wantOlder)
 			}
