@@ -1,0 +1,13 @@
+name: Modver
+description: Analyze pull requests for changes in Go code that require updating a module's version number.
+author: Bob Glickstein
+inputs:
+  github_token:
+    description: 'The GitHub token to use for authentication.'
+    required: true
+  pull_request_url:
+    description: 'The full github.com URL of the pull request.'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'

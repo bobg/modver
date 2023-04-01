@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"bufio"
@@ -16,7 +16,8 @@ import (
 	"github.com/bobg/modver/v2"
 )
 
-func doPR(ctx context.Context, gh *github.Client, owner, reponame string, prnum int) (modver.Result, error) {
+// PR performs modver analysis on a GitHub pull request.
+func PR(ctx context.Context, gh *github.Client, owner, reponame string, prnum int) (modver.Result, error) {
 	return prHelper(ctx, gh.Repositories, gh.PullRequests, gh.Issues, modver.CompareGit, owner, reponame, prnum)
 }
 
