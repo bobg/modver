@@ -15,7 +15,10 @@ import (
 )
 
 func main() {
-	err := filepath.Walk("/", func(path string, info fs.FileInfo, _ error) error {
+	err := filepath.Walk("/", func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
 		if !info.IsDir() {
 			return nil
 		}
