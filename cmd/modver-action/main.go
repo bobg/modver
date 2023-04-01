@@ -15,12 +15,12 @@ import (
 )
 
 func main() {
-	err := filepath.Walk("/", func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	err := filepath.Walk("/", func(path string, info fs.FileInfo, _ error) error {
 		if !info.IsDir() {
 			return nil
+		}
+		if path == "/go/mod/pkg" {
+			return filepath.SkipDir
 		}
 		if !strings.HasSuffix(path, "/src/unsafe") {
 			return nil
