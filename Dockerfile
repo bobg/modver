@@ -1,6 +1,7 @@
 FROM golang:latest
 
 ADD . /app
+ADD $GOROOT $GOROOT
 
 WORKDIR /app
 
