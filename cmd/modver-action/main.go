@@ -1,28 +1,16 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"log"
 	"os"
-	"os/exec"
 
 	"github.com/bobg/modver/v2"
 	"github.com/bobg/modver/v2/internal"
 )
 
 func main() {
-	goroot, err := exec.Command("go", "env", "GOROOT").Output()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			log.Fatalf("Running go env GOROOT: %s\n%s", err, string(exitErr.Stderr))
-		}
-		log.Fatalf("Running go env GOROOT: %s", err)
-	}
-	goroot = bytes.TrimSpace(goroot)
-	os.Setenv("GOROOT", string(goroot))
+	os.Setenv("GOROOT", os.Getenv("GOPATH")) // Docker weirdness
 
 	prURL := os.Getenv("INPUT_PULL_REQUEST_URL")
 	host, owner, reponame, prnum, err := internal.ParsePR(prURL)
