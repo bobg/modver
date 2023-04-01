@@ -1,6 +1,8 @@
 FROM golang:latest
 
-VOLUME $GOROOT
+RUN env
+
+VOLUME ["${GOROOT}"]
 
 ADD . /app
 
