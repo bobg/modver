@@ -2,15 +2,35 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/bobg/modver/v2"
 	"github.com/bobg/modver/v2/internal"
 )
 
 func main() {
-	os.Setenv("GOROOT", os.Getenv("GOPATH")) // Docker weirdness
+	err := filepath.Walk("/", func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(path, "/src/unsafe") {
+			return nil
+		}
+		fmt.Printf("FOUND %s\n", path)
+		return filepath.SkipAll
+	})
+	if err != nil && !errors.Is(err, filepath.SkipAll) {
+		log.Fatalf("Looking for unsafe: %s", err)
+	}
 
 	prURL := os.Getenv("INPUT_PULL_REQUEST_URL")
 	host, owner, reponame, prnum, err := internal.ParsePR(prURL)
