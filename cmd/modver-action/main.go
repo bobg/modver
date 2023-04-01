@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log"
 	"os"
 	"os/exec"
@@ -14,6 +15,10 @@ import (
 func main() {
 	goroot, err := exec.Command("go", "env", "GOROOT").Output()
 	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			log.Fatalf("Running go env GOROOT: %s\n%s", err, string(exitErr.Stderr))
+		}
 		log.Fatalf("Running go env GOROOT: %s", err)
 	}
 	goroot = bytes.TrimSpace(goroot)
