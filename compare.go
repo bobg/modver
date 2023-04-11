@@ -86,10 +86,29 @@ func Compare(olders, newers []*packages.Package) Result {
 	return None
 }
 
+func isPublic(pkgpath string) bool {
+	switch pkgpath {
+	case "internal", "main":
+		return false
+	}
+	if strings.HasSuffix(pkgpath, "/main") {
+		return false
+	}
+	if strings.HasPrefix(pkgpath, "internal/") {
+		return false
+	}
+	if strings.HasSuffix(pkgpath, "/internal") {
+		return false
+	}
+	if strings.Contains(pkgpath, "/internal/") {
+		return false
+	}
+	return true
+}
+
 func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Result {
 	for pkgPath, pkg := range older {
-		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
-			// Nothing in an internal package or subpackage is part of the public API.
+		if !isPublic(pkgPath) {
 			continue
 		}
 
@@ -132,8 +151,7 @@ func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Resul
 
 func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Result {
 	for pkgPath, pkg := range newer {
-		if strings.Contains(pkgPath, "/internal/") || strings.HasSuffix(pkgPath, "/internal") {
-			// Nothing in an internal package or subpackage is part of the public API.
+		if !isPublic(pkgPath) {
 			continue
 		}
 
@@ -303,7 +321,7 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 		cloneOpts := &git.CloneOptions{URL: repoURL, NoCheckout: true}
 		repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
 		if err != nil {
-			return fmt.Errorf("cloning %s into %s: %w", repoURL, dir, err)
+			return cloneBugErr{repoURL: repoURL, dir: dir, err: err}
 		}
 		worktree, err := repo.Worktree()
 		if err != nil {
@@ -320,4 +338,17 @@ func gitSetup(ctx context.Context, repoURL, dir, rev string) error {
 	}
 
 	return nil
+}
+
+type cloneBugErr struct {
+	repoURL, dir string
+	err          error
+}
+
+func (cb cloneBugErr) Error() string {
+	return fmt.Sprintf("cloning %s into %s: %s", cb.repoURL, cb.dir, cb.err)
+}
+
+func (cb cloneBugErr) Unwrap() error {
+	return cb.err
 }
