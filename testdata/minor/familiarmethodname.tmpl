@@ -1,0 +1,28 @@
+//// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package familiarmethodname
+
+type Val int
+
+const String Val = 1
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package familiarmethodname
+
+type Val int
+
+const String Val = 1
+
+func (v *Val) String() string {
+	switch *v {
+		case String: return "string"
+	}
+	return "<unknown>"
+}
+
+//// {{ end }}
