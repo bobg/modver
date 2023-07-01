@@ -613,10 +613,11 @@ func makeTopObjs(pkg *packages.Package) map[string]types.Object {
 			case *ast.FuncDecl:
 				// If decl is a method, qualify the name with the receiver type.
 				name := decl.Name.Name
-				if decl.Recv != nil {
+				if decl.Recv != nil && len(decl.Recv.List) > 0 {
 					recv := decl.Recv.List[0].Type
-					info := pkg.TypesInfo.Types[recv]
-					name = types.TypeString(info.Type, types.RelativeTo(pkg.Types)) + "." + name
+					if info := pkg.TypesInfo.Types[recv]; info.Type != nil {
+						name = types.TypeString(info.Type, types.RelativeTo(pkg.Types)) + "." + name
+					}
 				}
 
 				res[name] = pkg.TypesInfo.Defs[decl.Name]
