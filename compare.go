@@ -127,7 +127,7 @@ func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Resul
 		)
 
 		for id, obj := range topObjs {
-			if !ast.IsExported(id) {
+			if !isExported(id) {
 				continue
 			}
 			if newPkg == nil {
@@ -162,7 +162,7 @@ func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Resul
 		)
 
 		for id, obj := range topObjs {
-			if !ast.IsExported(id) {
+			if !isExported(id) {
 				continue
 			}
 			if oldPkg == nil {
@@ -351,4 +351,13 @@ func (cb cloneBugErr) Error() string {
 
 func (cb cloneBugErr) Unwrap() error {
 	return cb.err
+}
+
+// Calls ast.IsExported on the final element of name
+// (which may be package/type-qualified).
+func isExported(name string) bool {
+	if i := strings.LastIndex(name, "."); i > 0 {
+		name = name[i+1:]
+	}
+	return ast.IsExported(name)
 }
