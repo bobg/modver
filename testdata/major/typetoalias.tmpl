@@ -1,0 +1,41 @@
+// -*- mode: go -*-
+
+//// {{ define "older" }}
+
+package typetoalias
+
+// Identical to scanner.Position.
+type Position struct {
+	Filename string // filename, if any
+	Offset   int    // byte offset, starting at 0
+	Line     int    // line number, starting at 1
+	Column   int    // column number, starting at 1 (character count per line)
+}
+
+type I interface {
+	F(Position)
+}
+
+func X(p Position, i I) {
+	i.F(p)
+}
+
+//// {{ end }}
+
+//// {{ define "newer" }}
+
+package typetoalias
+
+import "text/scanner"
+
+type Position = scanner.Position
+
+type I interface {
+	F(Position)
+}
+
+func X(p Position, i I) {
+	i.F(p)
+}
+
+//// {{ end }}
