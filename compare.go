@@ -112,18 +112,10 @@ func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Resul
 			continue
 		}
 
-		newPkg := newer[pkgPath]
-		if newPkg != nil {
-			if oldMod, newMod := pkg.Module, newPkg.Module; oldMod != nil && newMod != nil {
-				if cmp := semver.Compare("v"+oldMod.GoVersion, "v"+newMod.GoVersion); cmp < 0 {
-					return rwrapf(Major, "minimum Go version changed from %s to %s", oldMod.GoVersion, newMod.GoVersion)
-				}
-			}
-		}
-
 		var (
 			topObjs    = makeTopObjs(pkg)
 			newTopObjs map[string]types.Object
+			newPkg     = newer[pkgPath]
 		)
 
 		for id, obj := range topObjs {
@@ -155,9 +147,17 @@ func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Resul
 			continue
 		}
 
+		oldPkg := older[pkgPath]
+		if oldPkg != nil {
+			if oldMod, newMod := oldPkg.Module, pkg.Module; oldMod != nil && newMod != nil {
+				if cmp := semver.Compare("v"+oldMod.GoVersion, "v"+newMod.GoVersion); cmp < 0 {
+					return rwrapf(Minor, "minimum Go version changed from %s to %s", oldMod.GoVersion, newMod.GoVersion)
+				}
+			}
+		}
+
 		var (
 			topObjs    = makeTopObjs(pkg)
-			oldPkg     = older[pkgPath]
 			oldTopObjs map[string]types.Object
 		)
 
