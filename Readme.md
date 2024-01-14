@@ -4,6 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/bobg/modver)](https://goreportcard.com/report/github.com/bobg/modver)
 [![Tests](https://github.com/bobg/modver/actions/workflows/go.yml/badge.svg)](https://github.com/bobg/modver/actions/workflows/go.yml)
 [![Coverage Status](https://coveralls.io/repos/github/bobg/modver/badge.svg?branch=master)](https://coveralls.io/github/bobg/modver?branch=master)
+[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
 This is modver,
 a tool that helps you obey [semantic versioning rules](https://semver.org/) in your Go module.
