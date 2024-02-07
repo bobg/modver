@@ -1,12 +1,11 @@
 // -*- mode: go -*-
 
-// {{ define "go.mod" }}
+// {{ define "go.mod" -}}
 //// module hashsplit
 //// 
 //// go 1.16
 //// 
-//// require go4.org v0.0.0-20201209231011-d4a079459e60
-// {{ end }}
+//// require go4.org v0.0.0-20201209231011-d4a079459e60 {{- end }}
 
 // {{ define "go.sum" }}
 //// cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
@@ -228,8 +227,7 @@
 //// honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 //// rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 //// rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
-//// rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
-// {{ end }}
+//// rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA= {{- end }}
 
 // This is https://github.com/bobg/hashsplit/blob/45af5ea8ce6bf3793e231004f8b13c4bccc529f3/hashsplit.go
 // {{ define "older" }}
