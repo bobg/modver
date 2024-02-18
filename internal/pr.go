@@ -18,7 +18,7 @@ import (
 
 // PR performs modver analysis on a GitHub pull request.
 func PR(ctx context.Context, gh *github.Client, owner, reponame string, prnum int) (modver.Result, error) {
-	return prHelper(ctx, gh.Repositories, gh.PullRequests, gh.Issues, modver.CompareGit, owner, reponame, prnum)
+	return prHelper(ctx, gh.Repositories, gh.PullRequests, gh.Issues, modver.CompareGit2, owner, reponame, prnum)
 }
 
 type reposIntf interface {
@@ -35,7 +35,7 @@ type issuesIntf interface {
 	ListComments(ctx context.Context, owner, reponame string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error)
 }
 
-func prHelper(ctx context.Context, repos reposIntf, prs prsIntf, issues issuesIntf, comparer func(ctx context.Context, cloneURL, baseSHA, headSHA string) (modver.Result, error), owner, reponame string, prnum int) (modver.Result, error) {
+func prHelper(ctx context.Context, repos reposIntf, prs prsIntf, issues issuesIntf, comparer func(ctx context.Context, baseURL, baseSHA, headURL, headSHA string) (modver.Result, error), owner, reponame string, prnum int) (modver.Result, error) {
 	repo, _, err := repos.Get(ctx, owner, reponame)
 	if err != nil {
 		return modver.None, errors.Wrap(err, "getting repository")
@@ -44,7 +44,7 @@ func prHelper(ctx context.Context, repos reposIntf, prs prsIntf, issues issuesIn
 	if err != nil {
 		return modver.None, errors.Wrap(err, "getting pull request")
 	}
-	result, err := comparer(ctx, *repo.CloneURL, *pr.Base.SHA, *pr.Head.SHA)
+	result, err := comparer(ctx, *pr.Base.Repo.CloneURL, *pr.Base.SHA, *pr.Head.Repo.CloneURL, *pr.Head.SHA)
 	if err != nil {
 		return modver.None, errors.Wrap(err, "comparing versions")
 	}

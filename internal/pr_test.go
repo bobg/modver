@@ -70,8 +70,18 @@ type mockPRsService struct{}
 
 func (mockPRsService) Get(ctx context.Context, owner, reponame string, number int) (*github.PullRequest, *github.Response, error) {
 	return &github.PullRequest{
-		Base:   &github.PullRequestBranch{SHA: ptr("baseSHA")},
-		Head:   &github.PullRequestBranch{SHA: ptr("headSHA")},
+		Base: &github.PullRequestBranch{
+			Repo: &github.Repository{
+				CloneURL: ptr("baseURL"),
+			},
+			SHA: ptr("baseSHA"),
+		},
+		Head: &github.PullRequestBranch{
+			Repo: &github.Repository{
+				CloneURL: ptr("headURL"),
+			},
+			SHA: ptr("headSHA"),
+		},
 		Number: ptr(17),
 	}, nil, nil
 }
@@ -113,8 +123,8 @@ func (m *mockIssuesService) ListComments(ctx context.Context, owner, reponame st
 	return result, nil, nil
 }
 
-func mockComparer(result modver.Result) func(ctx context.Context, cloneURL, baseSHA, headSHA string) (modver.Result, error) {
-	return func(ctx context.Context, cloneURL, baseSHA, headSHA string) (modver.Result, error) {
+func mockComparer(result modver.Result) func(_ context.Context, _, _, _, _ string) (modver.Result, error) {
+	return func(_ context.Context, _, _, _, _ string) (modver.Result, error) {
 		return result, nil
 	}
 }

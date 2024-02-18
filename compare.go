@@ -251,12 +251,17 @@ func (p errpkg) Error() string {
 	return fmt.Sprintf("error(s) loading package %s: %s", p.pkg.PkgPath, strings.Join(strs, "; "))
 }
 
-// CompareGit compares the Go packages in two revisions of a Git repo at the given URL.
+// CompareGit compares the Go packages in two revisions of a Git repository at the given URL.
 func CompareGit(ctx context.Context, repoURL, olderRev, newerRev string) (Result, error) {
 	return CompareGitWith(ctx, repoURL, olderRev, newerRev, CompareDirs)
 }
 
-// CompareGitWith compares the Go packages in two revisions of a Git repo at the given URL.
+// CompareGit2 compares the Go packages in one revision each of two Git repositories.
+func CompareGit2(ctx context.Context, olderRepoURL, olderRev, newerRepoURL, newerRev string) (Result, error) {
+	return CompareGit2With(ctx, olderRepoURL, olderRev, newerRepoURL, newerRev, CompareDirs)
+}
+
+// CompareGitWith compares the Go packages in two revisions of a Git repository at the given URL.
 // It uses the given callback function to perform the comparison.
 //
 // The callback function receives the paths to two directories,
@@ -266,6 +271,17 @@ func CompareGit(ctx context.Context, repoURL, olderRev, newerRev string) (Result
 //
 // Note that CompareGit(...) is simply CompareGitWith(..., CompareDirs).
 func CompareGitWith(ctx context.Context, repoURL, olderRev, newerRev string, f func(older, newer string) (Result, error)) (Result, error) {
+	return CompareGit2With(ctx, repoURL, olderRev, repoURL, newerRev, f)
+}
+
+// CompareGit2With compares the Go packages in one revision each of two Git repositories.
+// It uses the given callback function to perform the comparison.
+//
+// The callback function receives the paths to two directories,
+// each containing a clone of one of the repositories at its selected revision.
+//
+// Note that CompareGit2(...) is simply CompareGit2With(..., CompareDirs).
+func CompareGit2With(ctx context.Context, olderRepoURL, olderRev, newerRepoURL, newerRev string, f func(older, newer string) (Result, error)) (Result, error) {
 	parent, err := os.MkdirTemp("", "modver")
 	if err != nil {
 		return None, fmt.Errorf("creating tmpdir: %w", err)
@@ -275,12 +291,12 @@ func CompareGitWith(ctx context.Context, repoURL, olderRev, newerRev string, f f
 	olderDir := filepath.Join(parent, "older")
 	newerDir := filepath.Join(parent, "newer")
 
-	err = gitSetup(ctx, repoURL, olderDir, olderRev)
+	err = gitSetup(ctx, olderRepoURL, olderDir, olderRev)
 	if err != nil {
 		return None, fmt.Errorf("setting up older clone: %w", err)
 	}
 
-	err = gitSetup(ctx, repoURL, newerDir, newerRev)
+	err = gitSetup(ctx, newerRepoURL, newerDir, newerRev)
 	if err != nil {
 		return None, fmt.Errorf("setting up newer clone: %w", err)
 	}
