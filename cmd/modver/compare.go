@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/bobg/errors"
+	"github.com/bobg/prcomment"
 	"github.com/google/go-github/v62/github"
 
 	"github.com/bobg/modver/v2"
@@ -25,7 +26,7 @@ type (
 
 func doCompareHelper(ctx context.Context, opts options, newClient newClientType, pr prType, compareGitWith compareGitWithType, compareDirs compareDirsType) (modver.Result, error) {
 	if opts.pr != "" {
-		host, owner, reponame, prnum, err := internal.ParsePR(opts.pr)
+		host, owner, reponame, prnum, err := prcomment.ParsePR(opts.pr)
 		if err != nil {
 			return modver.None, errors.Wrap(err, "parsing pull-request URL")
 		}
