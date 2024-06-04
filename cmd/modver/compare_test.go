@@ -96,7 +96,7 @@ func TestDoCompare(t *testing.T) {
 	}
 }
 
-func mockNewClient(ctx context.Context, host, token string) (*github.Client, error) {
+func mockNewClient(_, _ string) (*github.Client, error) {
 	return nil, nil
 }
 

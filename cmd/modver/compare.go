@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"strings"
 
 	"github.com/bobg/errors"
 	"github.com/bobg/prcomment"
@@ -14,11 +16,11 @@ import (
 )
 
 func doCompare(ctx context.Context, opts options) (modver.Result, error) {
-	return doCompareHelper(ctx, opts, internal.NewClient, internal.PR, modver.CompareGitWith, modver.CompareDirs)
+	return doCompareHelper(ctx, opts, newGHClient, internal.PR, modver.CompareGitWith, modver.CompareDirs)
 }
 
 type (
-	newClientType      = func(ctx context.Context, host, token string) (*github.Client, error)
+	newClientType      = func(host, token string) (*github.Client, error)
 	prType             = func(ctx context.Context, gh *github.Client, owner, reponame string, prnum int) (modver.Result, error)
 	compareGitWithType = func(ctx context.Context, repoURL, olderRev, newerRev string, f func(older, newer string) (modver.Result, error)) (modver.Result, error)
 	compareDirsType    = func(older, newer string) (modver.Result, error)
@@ -33,7 +35,7 @@ func doCompareHelper(ctx context.Context, opts options, newClient newClientType,
 		if opts.ghtoken == "" {
 			return modver.None, fmt.Errorf("usage: %s -pr URL [-token TOKEN]", os.Args[0])
 		}
-		gh, err := newClient(ctx, host, opts.ghtoken)
+		gh, err := newClient(host, opts.ghtoken)
 		if err != nil {
 			return modver.None, errors.Wrap(err, "creating GitHub client")
 		}
@@ -56,4 +58,20 @@ func doCompareHelper(ctx context.Context, opts options, newClient newClientType,
 		return nil, fmt.Errorf("usage: %s [-q | -pretty] [-v1 OLDERVERSION -v2 NEWERVERSION] OLDERDIR NEWERDIR", os.Args[0])
 	}
 	return compareDirs(opts.args[0], opts.args[1])
+}
+
+func newGHClient(host, token string) (*github.Client, error) {
+	hc := new(http.Client)
+	gh := github.NewClient(hc).WithAuthToken(token)
+	if !strings.EqualFold(host, "github.com") {
+		var (
+			u   = "https://" + host
+			err error
+		)
+		gh, err = gh.WithEnterpriseURLs(u, u)
+		if err != nil {
+			return nil, errors.Wrap(err, "setting enterprise URLs")
+		}
+	}
+	return gh, nil
 }
