@@ -12,14 +12,18 @@ import (
 
 type (
 	comparer struct {
-		stack []typePair
-		cache map[typePair]Result
+		stack       []typePair
+		cache       map[typePair]Result
+		identicache map[typePair]bool
 	}
 	typePair struct{ a, b types.Type }
 )
 
 func newComparer() *comparer {
-	return &comparer{cache: make(map[typePair]Result)}
+	return &comparer{
+		cache:       make(map[typePair]Result),
+		identicache: make(map[typePair]bool),
+	}
 }
 
 func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
