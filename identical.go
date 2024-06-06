@@ -4,7 +4,7 @@ import "go/types"
 
 // https://golang.org/ref/spec#Type_identity
 func (c *comparer) identical(a, b types.Type) (res bool) {
-	tp := typePair{a: b, b: a}
+	tp := typePair{a: a, b: b}
 	if res, ok := c.identicache[tp]; ok {
 		return res
 	}
