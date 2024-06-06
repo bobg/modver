@@ -4,7 +4,12 @@ import "go/types"
 
 // https://golang.org/ref/spec#Type_identity
 func (c *comparer) identical(a, b types.Type) (res bool) {
-	tp := typePair{a: a, b: b}
+	tp := typePair{a: b, b: a}
+	if res, ok := c.identicache[tp]; ok {
+		return res
+	}
+	// identical(a, b) = identical(b, a)
+	tp.a, tp.b = b, a
 	if res, ok := c.identicache[tp]; ok {
 		return res
 	}
@@ -20,8 +25,11 @@ func (c *comparer) identical(a, b types.Type) (res bool) {
 		if a == pair.a && b == pair.b {
 			return true
 		}
+		if a == pair.b && b == pair.a {
+			return true
+		}
 	}
-	c.stack = append(c.stack, typePair{a: a, b: b})
+	c.stack = append(c.stack, tp)
 	defer func() { c.stack = c.stack[:len(c.stack)-1] }()
 
 	if na, ok := a.(*types.Named); ok {
