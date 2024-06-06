@@ -3,7 +3,13 @@ package modver
 import "go/types"
 
 // https://golang.org/ref/spec#Type_identity
-func (c *comparer) identical(a, b types.Type) bool {
+func (c *comparer) identical(a, b types.Type) (res bool) {
+	tp := typePair{a: a, b: b}
+	if res, ok := c.identicache[tp]; ok {
+		return res
+	}
+	defer func() { c.identicache[tp] = res }()
+
 	if types.Identical(a, b) {
 		return true
 	}
