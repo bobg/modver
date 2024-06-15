@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/bobg/errors"
 	"golang.org/x/tools/go/packages"
 )
 
