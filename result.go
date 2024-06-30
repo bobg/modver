@@ -45,6 +45,30 @@ func (r ResultCode) String() string {
 	}
 }
 
+func (r ResultCode) MarshalText() ([]byte, error) {
+	switch r {
+	case None, Patchlevel, Minor, Major:
+		return []byte(r.String()), nil
+	}
+	return nil, fmt.Errorf("unknown ResultCode value %d", r)
+}
+
+func (r *ResultCode) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "None":
+		*r = None
+	case "Patchlevel":
+		*r = Patchlevel
+	case "Minor":
+		*r = Minor
+	case "Major":
+		*r = Major
+	default:
+		return fmt.Errorf("unknown ResultCode value %q", text)
+	}
+	return nil
+}
+
 type wrapped struct {
 	r       Result
 	whyfmt  string
