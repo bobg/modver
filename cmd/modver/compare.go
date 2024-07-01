@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bobg/errors"
 	"github.com/google/go-github/v50/github"
-	"github.com/pkg/errors"
 
 	"github.com/bobg/modver/v2"
 	"github.com/bobg/modver/v2/internal"

@@ -3,9 +3,9 @@ module github.com/bobg/modver/v2
 go 1.22
 
 require (
+	github.com/bobg/errors v1.1.0
 	github.com/go-git/go-git/v5 v5.6.1
 	github.com/google/go-github/v50 v50.2.0
-	github.com/pkg/errors v0.9.1
 	golang.org/x/mod v0.15.0
 	golang.org/x/oauth2 v0.16.0
 	golang.org/x/tools v0.17.0

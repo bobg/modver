@@ -10,8 +10,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/bobg/errors"
 	"github.com/google/go-github/v50/github"
-	"github.com/pkg/errors"
 
 	"github.com/bobg/modver/v2"
 )
