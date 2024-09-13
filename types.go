@@ -6,6 +6,7 @@ import (
 	"go/types"
 	"reflect"
 	"regexp"
+	"strings"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -237,9 +238,12 @@ func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
 
 	if c.implements(newer, older) {
 		if !c.implements(older, newer) {
-			if anyUnexportedMethods(older) {
+			switch {
+			case anyUnexportedMethods(older):
 				res = rwrapf(Minor, "new interface %s is a superset of older, with unexported methods", newer)
-			} else {
+			case anyInternalTypes(older):
+				res = rwrapf(Minor, "new interface %s is a superset of older, using internal types", newer)
+			default:
 				res = rwrapf(Major, "new interface %s is a superset of older", newer)
 			}
 		}
@@ -313,6 +317,50 @@ func anyUnexportedMethods(intf *types.Interface) bool {
 		}
 	}
 	return false
+}
+
+// Do any of the types in the method args or results have "internal" in their pkgpaths?
+func anyInternalTypes(intf *types.Interface) bool {
+	for i := 0; i < intf.NumMethods(); i++ {
+		sig, ok := intf.Method(i).Type().(*types.Signature)
+		if !ok {
+			// Should be impossible.
+			continue
+		}
+		if anyInternalTypesInTuple(sig.Params()) || anyInternalTypesInTuple(sig.Results()) {
+			return true
+		}
+		if recv := sig.Recv(); recv != nil && isInternalType(recv.Type()) {
+			return true
+		}
+	}
+	return false
+}
+
+func anyInternalTypesInTuple(tup *types.Tuple) bool {
+	for i := 0; i < tup.Len(); i++ {
+		if isInternalType(tup.At(i).Type()) {
+			return true
+		}
+	}
+	return false
+}
+
+func isInternalType(typ types.Type) bool {
+	s := types.TypeString(typ, nil)
+	if strings.HasPrefix(s, "internal.") {
+		return true
+	}
+	if strings.Contains(s, "/internal.") {
+		return true
+	}
+	if strings.Contains(s, "/internal/") {
+		return true
+	}
+	if strings.HasPrefix(s, "main.") {
+		return true
+	}
+	return strings.Contains(s, "/main.")
 }
 
 // This takes an interface and flattens its typelists by traversing embeds.
