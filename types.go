@@ -237,7 +237,11 @@ func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
 
 	if c.implements(newer, older) {
 		if !c.implements(older, newer) {
-			res = rwrapf(Major, "new interface %s is a superset of older", newer)
+			if anyUnexportedMethods(older) {
+				res = rwrapf(Minor, "new interface %s is a superset of older, with unexported methods", newer)
+			} else {
+				res = rwrapf(Major, "new interface %s is a superset of older", newer)
+			}
 		}
 	} else {
 		return rwrapf(Major, "new interface %s does not implement old", newer)
@@ -300,6 +304,15 @@ func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
 		return rwrapf(Major, "newer constraint type union is a subset of older (constraint has tightened)")
 	}
 	return rwrapf(Major, "constraint type unions differ")
+}
+
+func anyUnexportedMethods(intf *types.Interface) bool {
+	for i := 0; i < intf.NumMethods(); i++ {
+		if !ast.IsExported(intf.Method(i).Name()) {
+			return true
+		}
+	}
+	return false
 }
 
 // This takes an interface and flattens its typelists by traversing embeds.
