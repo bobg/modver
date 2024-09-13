@@ -1,0 +1,34 @@
+// -*- mode: go -*-
+
+// {{ define "older/internal/q.go" }}
+package internal
+
+type Q int
+// {{ end }}
+
+// {{ define "newer/internal/q.go" }}
+package internal
+
+type Q int
+// {{ end }}
+
+// {{ define "older" }}
+package addmethod2
+
+import "addmethod2/internal"
+
+type X interface {
+  A() internal.Q
+}
+// {{ end }}
+
+// {{ define "newer" }}
+package addmethod2
+
+import "addmethod2/internal"
+
+type X interface {
+	A() internal.Q
+	B() string
+}
+// {{ end }}
