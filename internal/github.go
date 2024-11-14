@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bobg/errors"
 	"github.com/google/go-github/v50/github"
-	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 )
 
