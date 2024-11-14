@@ -1,0 +1,20 @@
+// -*- mode: go -*-
+
+// {{ define "older" }}
+package addmethod1
+
+type X interface {
+  A() int
+	unexported()
+}
+// {{ end }}
+
+// {{ define "newer" }}
+package addmethod1
+
+type X interface {
+	A() int
+	B() string
+	unexported()
+}
+// {{ end }}
