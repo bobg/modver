@@ -60,33 +60,67 @@ import (
 	"os"
 
 	"golang.org/x/mod/semver"
+	"github.com/bobg/subcmd/v2"
 
-	"github.com/bobg/modver/v2"
+	"github.com/bobg/modver/v3"
 )
 
 const errorStatus = 4
 
 func main() {
-	opts, err := parseArgs()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing args: %s\n", err)
-		os.Exit(errorStatus)
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		os.Exit(1)
 	}
-
-	ctx := context.Background()
-	if opts.gitCmd != "" {
-		ctx = modver.WithGit(ctx, opts.gitCmd)
-	}
-
-	res, err := doCompare(ctx, opts)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error in comparing: %s\n", err)
-		os.Exit(errorStatus)
-	}
-
-	exitCode := doShowResult(os.Stdout, res, opts)
-	os.Exit(exitCode)
 }
+
+func run() error {
+	var (
+		ctx = context.Background()
+
+		c maincmd
+	)
+
+	return subcmd.Run(ctx, c, os.Args[1:])
+}
+
+type maincmd struct{
+}
+
+func (maincmd) Subcmds() subcmd.Map {
+	return subcmd.Commands(
+		"action", doAction, "run as a GitHub Action", nil,
+		"dirs", doDirs, "compare the Go modules in two directory trees", subcmd.Params(
+			"older", subcmd.String, "", `path to the "older" directory`,
+			"newer", subcmd.String, "", `path to the "newer" directory`,
+		),
+		"git", doGit, "compare the Go modules in two versions of a Git repository", subcmd.Params(
+		),
+		"pr", doPR, "compare the Go modules in the base and head of a GitHub pull request", subcmd.Params(
+		),
+	)
+}
+
+// 	opts, err := parseArgs()
+// 	if err != nil {
+// 		fmt.Fprintf(os.Stderr, "Error parsing args: %s\n", err)
+// 		os.Exit(errorStatus)
+// 	}
+
+// 	ctx := context.Background()
+// 	if opts.gitCmd != "" {
+// 		ctx = modver.WithGit(ctx, opts.gitCmd)
+// 	}
+
+// 	res, err := doCompare(ctx, opts)
+// 	if err != nil {
+// 		fmt.Fprintf(os.Stderr, "Error in comparing: %s\n", err)
+// 		os.Exit(errorStatus)
+// 	}
+
+// 	exitCode := doShowResult(os.Stdout, res, opts)
+// 	os.Exit(exitCode)
+// }
 
 func doShowResult(out io.Writer, res modver.Result, opts options) int {
 	if opts.v1 != "" && opts.v2 != "" {

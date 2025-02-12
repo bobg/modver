@@ -1,7 +1,7 @@
 # Modver
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/bobg/modver/v2.svg)](https://pkg.go.dev/github.com/bobg/modver/v2)
-[![Go Report Card](https://goreportcard.com/badge/github.com/bobg/modver/v2)](https://goreportcard.com/report/github.com/bobg/modver/v2)
+[![Go Reference](https://pkg.go.dev/badge/github.com/bobg/modver/v3.svg)](https://pkg.go.dev/github.com/bobg/modver/v3)
+[![Go Report Card](https://goreportcard.com/badge/github.com/bobg/modver/v3)](https://goreportcard.com/report/github.com/bobg/modver/v3)
 [![Tests](https://github.com/bobg/modver/actions/workflows/go.yml/badge.svg)](https://github.com/bobg/modver/actions/workflows/go.yml)
 [![Coverage Status](https://coveralls.io/repos/github/bobg/modver/badge.svg?branch=master)](https://coveralls.io/github/bobg/modver?branch=master)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
@@ -28,7 +28,7 @@ or with [GitHub Actions](https://github.com/features/actions).
 Install the `modver` command like this:
 
 ```sh
-go install github.com/bobg/modver/v2/cmd/modver@latest
+go install github.com/bobg/modver/v3/cmd/modver@latest
 ```
 
 Assuming the current directory is the root of a cloned Git repository,
@@ -105,8 +105,8 @@ see [the GitHub Actions documentation](https://docs.github.com/actions).
 ### Go library
 
 Modver also has a simple API for use from within Go programs.
-Add it to your project with `go get github.com/bobg/modver/v2@latest`.
-See [the Go doc page](https://pkg.go.dev/github.com/bobg/modver/v2) for information about how to use it.
+Add it to your project with `go get github.com/bobg/modver/v3@latest`.
+See [the Go doc page](https://pkg.go.dev/github.com/bobg/modver/v3) for information about how to use it.
 
 ## Semantic versioning
 

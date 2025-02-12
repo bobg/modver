@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/bobg/modver/v2"
+	"github.com/bobg/modver/v3"
 )
 
 func TestDoShowResult(t *testing.T) {

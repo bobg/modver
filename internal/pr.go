@@ -11,9 +11,9 @@ import (
 	"text/template"
 
 	"github.com/bobg/errors"
-	"github.com/google/go-github/v50/github"
+	"github.com/google/go-github/v67/github"
 
-	"github.com/bobg/modver/v2"
+	"github.com/bobg/modver/v3"
 )
 
 // PR performs modver analysis on a GitHub pull request.

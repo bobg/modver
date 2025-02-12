@@ -13,7 +13,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"golang.org/x/mod/semver"
 
-	"github.com/bobg/modver/v2"
+	"github.com/bobg/modver/v3"
 )
 
 func getTags(v1, v2 *string, olderRev, newerRev string) func(older, newer string) (modver.Result, error) {

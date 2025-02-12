@@ -6,10 +6,10 @@ import (
 	"os"
 
 	"github.com/bobg/errors"
-	"github.com/google/go-github/v50/github"
+	"github.com/google/go-github/v67/github"
 
-	"github.com/bobg/modver/v2"
-	"github.com/bobg/modver/v2/internal"
+	"github.com/bobg/modver/v3"
+	"github.com/bobg/modver/v3/internal"
 )
 
 func doCompare(ctx context.Context, opts options) (modver.Result, error) {

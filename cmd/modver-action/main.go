@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/bobg/modver/v2"
-	"github.com/bobg/modver/v2/internal"
+	"github.com/bobg/modver/v3"
+	"github.com/bobg/modver/v3/internal"
 )
 
 func main() {
