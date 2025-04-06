@@ -2,33 +2,41 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"os"
+
+	"github.com/bobg/errors"
 
 	"github.com/bobg/modver/v3"
 	"github.com/bobg/modver/v3/internal"
 )
 
-func main() {
+func doAction(ctx context.Context, _ []string) error {
 	os.Setenv("GOROOT", "/usr/local/go") // Work around some Docker weirdness.
 
 	prURL := os.Getenv("INPUT_PULL_REQUEST_URL")
+
 	host, owner, reponame, prnum, err := internal.ParsePR(prURL)
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrapf(err, "parsing pull request URL %s", prURL)
 	}
+
 	token := os.Getenv("INPUT_GITHUB_TOKEN")
 	if token == "" {
-		log.Fatal("No GitHub token in the environment variable INPUT_GITHUB_TOKEN")
+		return fmt.Errorf("no GitHub token in the environment variable INPUT_GITHUB_TOKEN")
 	}
-	ctx := context.Background()
+
 	gh, err := internal.NewClient(ctx, host, token)
 	if err != nil {
-		log.Fatalf("Creating GitHub client: %s", err)
+		return errors.Wrap(err, "creating GitHub client")
 	}
+
 	result, err := internal.PR(ctx, gh, owner, reponame, prnum)
 	if err != nil {
-		log.Fatalf("Running comparison: %s", err)
+		return errors.Wrap(err, "running comparison")
 	}
+
 	modver.Pretty(os.Stdout, result)
+
+	return nil
 }

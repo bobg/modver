@@ -59,8 +59,8 @@ import (
 	"io"
 	"os"
 
-	"golang.org/x/mod/semver"
 	"github.com/bobg/subcmd/v2"
+	"golang.org/x/mod/semver"
 
 	"github.com/bobg/modver/v3"
 )
@@ -84,7 +84,7 @@ func run() error {
 	return subcmd.Run(ctx, c, os.Args[1:])
 }
 
-type maincmd struct{
+type maincmd struct {
 }
 
 func (maincmd) Subcmds() subcmd.Map {
@@ -94,10 +94,8 @@ func (maincmd) Subcmds() subcmd.Map {
 			"older", subcmd.String, "", `path to the "older" directory`,
 			"newer", subcmd.String, "", `path to the "newer" directory`,
 		),
-		"git", doGit, "compare the Go modules in two versions of a Git repository", subcmd.Params(
-		),
-		"pr", doPR, "compare the Go modules in the base and head of a GitHub pull request", subcmd.Params(
-		),
+		"git", doGit, "compare the Go modules in two versions of a Git repository", subcmd.Params(),
+		"pr", doPR, "compare the Go modules in the base and head of a GitHub pull request", subcmd.Params(),
 	)
 }
 
