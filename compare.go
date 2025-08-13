@@ -16,74 +16,9 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// Compare compares an "older" version of a Go module to a "newer" version of the same module.
-// It tells whether the changes from "older" to "newer" require an increase in the major, minor, or patchlevel version numbers,
-// according to semver rules (https://semver.org/).
-//
-// Briefly, a major-version bump is needed for incompatible changes in the public API,
-// such as when a type is removed or renamed,
-// or parameters or results are added to or removed from a function.
-// Old callers cannot expect to use the new version without being updated.
-//
-// A minor-version bump is needed when new features are added to the public API,
-// like a new entrypoint or new fields in an existing struct.
-// Old callers _can_ continue using the new version without being updated,
-// but callers depending on the new features cannot use the old version.
-//
-// A patchlevel bump is needed for most other changes.
-//
-// The result of Compare is the _minimal_ change required.
-// The actual change required may be greater.
-// For example,
-// if a new method is added to a type,
-// this function will return Minor.
-// However, if something also changed about an existing method that breaks the old contract -
-// it accepts a narrower range of inputs, for example,
-// or returns errors in some new cases -
-// that may well require a major-version bump,
-// and this function can't detect those cases.
-//
-// You can be assured, however,
-// that if this function returns Major,
-// a minor-version bump won't suffice,
-// and if this function returns Minor,
-// a patchlevel bump won't suffice,
-// etc.
-//
-// The packages passed to this function should have no load errors
-// (that is, len(p.Errors) should be 0 for each package p in `olders` and `newers`).
-// If you are using packages.Load
-// (see https://pkg.go.dev/golang.org/x/tools/go/packages#Load),
-// you will need at least
-//
-//	packages.NeedName | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo
-//
-// in your Config.Mode.
-// See CompareDirs for an example of how to call Compare with the result of packages.Load.
-func Compare(olders, newers []*packages.Package) Result {
-	var (
-		older = makePackageMap(olders)
-		newer = makePackageMap(newers)
-	)
-
-	c := newComparer()
-
-	// Look for major-version changes.
-	if res := c.compareMajor(older, newer); res != nil {
-		return res
-	}
-
-	// Look for minor-version changes.
-	if res := c.compareMinor(older, newer); res != nil {
-		return res
-	}
-
-	// Finally, look for patchlevel-version changes.
-	if res := c.comparePatchlevel(older, newer); res != nil {
-		return res
-	}
-
-	return None
+func Compare(olders, newers []*packages.Package) Report {
+	c := newComparer(olders, newers)
+	return c.run()
 }
 
 func isPublic(pkgpath string) bool {
@@ -107,38 +42,42 @@ func isPublic(pkgpath string) bool {
 }
 
 func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Result {
-	for pkgPath, pkg := range older {
-		if !isPublic(pkgPath) {
+	for pkgPath, pkg := range c.older {
+		x := c.compareMajorPkg(pkgPath, pkg)
+		// xxx accumulate x into result
+	}
+}
+
+func (c *comparer) compareMajorPkg(pkgPath string, pkg *packages.Package) Xxx {
+	if !isPublic(pkgPath) {
+		return nil
+	}
+
+	newer, ok := c.newer[pkgPath]
+	if !ok {
+		// xxx return "no new version of package"
+	}
+
+	var (
+		oldTopObjs = c.oldTopObjs[pkgPath]
+		newTopObjs = c.newTopObjs[pkgPath]
+	)
+	for id, obj := range oldTopObjs {
+		if !isExported(id) {
 			continue
 		}
 
-		var (
-			topObjs    = makeTopObjs(pkg)
-			newTopObjs map[string]types.Object
-			newPkg     = newer[pkgPath]
-		)
-
-		for id, obj := range topObjs {
-			if !isExported(id) {
-				continue
-			}
-			if newPkg == nil {
-				return rwrapf(Major, "no new version of package %s", pkgPath)
-			}
-			if newTopObjs == nil {
-				newTopObjs = makeTopObjs(newPkg)
-			}
-			newObj := newTopObjs[id]
-			if newObj == nil {
-				return rwrapf(Major, "no object %s in new version of package %s", id, pkgPath)
-			}
-			if res := c.compareTypes(obj.Type(), newObj.Type()); res.Code() == Major {
-				return rwrapf(res, "checking %s", id)
-			}
+		newObj := newTopObjs[id]
+		if newObj == nil {
+			// xxx accumulate "no object %s in new version of package %s"
+			continue
 		}
+
+		xxx := c.compareTypes(obj.Type(), newObj.Type())
+		// xxx accumulate xxx into result
 	}
 
-	return nil
+	return xxx
 }
 
 func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Result {

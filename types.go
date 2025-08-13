@@ -13,17 +13,41 @@ import (
 
 type (
 	comparer struct {
-		stack       []typePair
-		cache       map[typePair]Result
-		identicache map[typePair]bool
+		stack                  []typePair
+		older, newer           map[string]*packages.Package
+		oldTopObjs, newTopObjs map[string]map[string]types.Object // pkgpath -> objname -> obj
+		cache                  map[typePair]Result
+		identicache            map[typePair]bool
 	}
 	typePair struct{ a, b types.Type }
 )
 
-func newComparer() *comparer {
+func newComparer(olders, newers []*packages.Package) *comparer {
+	oldTopObjs := make(map[string]map[string]types.Object)
+	for _, pkg := range olders {
+		oldTopObjs[pkg.PkgPath] = makeTopObjs(pkg)
+	}
+
+	newTopObjs := make(map[string]map[string]types.Object)
+	for _, pkg := range newers {
+		newTopObjs[pkg.PkgPath] = makeTopObjs(pkg)
+	}
+
 	return &comparer{
+		older:       makePackageMap(olders),
+		newer:       makePackageMap(newers),
+		oldTopObjs:  oldTopObjs,
+		newTopObjs:  newTopObjs,
 		cache:       make(map[typePair]Result),
 		identicache: make(map[typePair]bool),
+	}
+}
+
+func (c *comparer) run() Report {
+	return Report{
+		Major: c.compareMajor(),
+		Minor: c.compareMinor(),
+		Patch: c.comparePatchlevel(),
 	}
 }
 
