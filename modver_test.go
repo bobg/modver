@@ -86,8 +86,8 @@ func runtest(tb testing.TB, typ string, want ResultCode) {
 					tb.Fatal(err)
 				}
 				if got.Code() != want {
-					tb.Errorf("want %s, got %s", want, got)
-				} else {
+					tb.Errorf("%s: want %s, got %s", name, want, got)
+				} else if testing.Verbose() {
 					tb.Log(got)
 				}
 			})
