@@ -31,3 +31,4 @@ jobs:
         uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: cover.out
+        continue-on-error: true
