@@ -52,6 +52,8 @@ func (c *comparer) run() Report {
 }
 
 func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
+	older, newer = types.Unalias(older), types.Unalias(newer)
+
 	pair := typePair{a: older, b: newer}
 	if res, ok := c.cache[pair]; ok {
 		if res == nil {
