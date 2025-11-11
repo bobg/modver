@@ -122,6 +122,18 @@ func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Resul
 			if !isExported(id) {
 				continue
 			}
+
+			// Is obj an exported method of an unexported type? (https://github.com/bobg/modver/issues/36)
+			if sig, ok := obj.Type().(*types.Signature); ok {
+				if recv := sig.Recv(); recv != nil {
+					if named, ok := recv.Type().(*types.Named); ok {
+						if !named.Obj().Exported() {
+							continue
+						}
+					}
+				}
+			}
+
 			if newPkg == nil {
 				return rwrapf(Major, "no new version of package %s", pkgPath)
 			}
