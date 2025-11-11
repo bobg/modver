@@ -1,0 +1,21 @@
+// -*- mode: go -*-
+
+// {{ define "older" }}
+package bug36
+
+type Intf interface {
+  Method()
+}
+
+type unexp struct{}
+func (unexp) Method() {}
+
+// {{ end }}
+
+// {{ define "newer" }}
+package bug36
+
+type Intf interface {
+  Method()
+}
+// {{ end }}
