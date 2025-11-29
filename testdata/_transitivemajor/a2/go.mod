@@ -1,6 +1,6 @@
 module foo.bar/a
 
-go 1.25
+go 1.23
 
 require (
 	foo.bar/d/v3 v3.0.0
