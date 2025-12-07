@@ -28,6 +28,8 @@ func newComparer() *comparer {
 }
 
 func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
+	older, newer = types.Unalias(older), types.Unalias(newer)
+
 	pair := typePair{a: older, b: newer}
 	if res, ok := c.cache[pair]; ok {
 		if res == nil {
@@ -145,6 +147,20 @@ func describeDirection(dir types.ChanDir) string {
 
 func (c *comparer) compareNamed(older, newer *types.Named) Result {
 	res := c.compareTypeParamLists(older.TypeParams(), newer.TypeParams())
+
+	olderPkg, newerPkg := older.Obj().Pkg(), newer.Obj().Pkg()
+	if olderPkg != nil {
+		if newerPkg == nil {
+			return rwrapf(Major, "%s went from package %s to no package", older, olderPkg.Path())
+		}
+		olderPkgPath, newerPkgPath := olderPkg.Path(), newerPkg.Path()
+		if olderPkgPath != newerPkgPath {
+			return rwrapf(Major, "%s went from package %s to package %s", older, olderPkgPath, newerPkgPath)
+		}
+	} else if newerPkg != nil {
+		return rwrapf(Major, "%s went from no package to package %s", older, newerPkg.Path())
+	}
+
 	if r := c.compareTypes(older.Underlying(), newer.Underlying()); r.Code() > res.Code() {
 		res = r
 	}
