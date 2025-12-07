@@ -7,7 +7,7 @@ require (
 	github.com/go-git/go-git/v5 v5.13.0
 	github.com/google/go-github/v50 v50.2.0
 	golang.org/x/mod v0.27.0
-	golang.org/x/oauth2 v0.22.0
+	golang.org/x/oauth2 v0.27.0
 	golang.org/x/tools v0.36.0
 )
 
