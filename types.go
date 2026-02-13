@@ -386,7 +386,6 @@ func termsOf(typ types.Type) []*types.Term {
 	switch typ := typ.(type) {
 	case *types.Interface:
 		for emb := range typ.EmbeddedTypes() {
-			emb := emb
 			res = append(res, termsOf(emb)...)
 		}
 
@@ -395,7 +394,6 @@ func termsOf(typ types.Type) []*types.Term {
 
 	case *types.Union:
 		for term := range typ.Terms() {
-			term := term
 			sub := termsOf(term.Type())
 
 			// TODO: Check this is the right logic for distributing term.Tilde() over the members of sub.
