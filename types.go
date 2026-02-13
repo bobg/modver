@@ -327,8 +327,8 @@ func (c *comparer) compareInterfaces(older, newer *types.Interface) Result {
 }
 
 func anyUnexportedMethods(intf *types.Interface) bool {
-	for i := 0; i < intf.NumMethods(); i++ {
-		if !ast.IsExported(intf.Method(i).Name()) {
+	for method := range intf.Methods() {
+		if !ast.IsExported(method.Name()) {
 			return true
 		}
 	}
@@ -337,8 +337,8 @@ func anyUnexportedMethods(intf *types.Interface) bool {
 
 // Do any of the types in the method args or results have "internal" in their pkgpaths?
 func anyInternalTypes(intf *types.Interface) bool {
-	for i := 0; i < intf.NumMethods(); i++ {
-		sig, ok := intf.Method(i).Type().(*types.Signature)
+	for method := range intf.Methods() {
+		sig, ok := method.Type().(*types.Signature)
 		if !ok {
 			// Should be impossible.
 			continue
@@ -354,8 +354,8 @@ func anyInternalTypes(intf *types.Interface) bool {
 }
 
 func anyInternalTypesInTuple(tup *types.Tuple) bool {
-	for i := 0; i < tup.Len(); i++ {
-		if isInternalType(tup.At(i).Type()) {
+	for v := range tup.Variables() {
+		if isInternalType(v.Type()) {
 			return true
 		}
 	}
@@ -385,8 +385,7 @@ func termsOf(typ types.Type) []*types.Term {
 
 	switch typ := typ.(type) {
 	case *types.Interface:
-		for i := 0; i < typ.NumEmbeddeds(); i++ {
-			emb := typ.EmbeddedType(i)
+		for emb := range typ.EmbeddedTypes() {
 			res = append(res, termsOf(emb)...)
 		}
 
@@ -394,8 +393,7 @@ func termsOf(typ types.Type) []*types.Term {
 		res = append(res, termsOf(typ.Underlying())...)
 
 	case *types.Union:
-		for i := 0; i < typ.Len(); i++ {
-			term := typ.Term(i)
+		for term := range typ.Terms() {
 			sub := termsOf(term.Type())
 
 			// TODO: Check this is the right logic for distributing term.Tilde() over the members of sub.
@@ -442,7 +440,7 @@ func (c *comparer) compareTuples(older, newer *types.Tuple, variadicCheck bool) 
 	}
 
 	var res Result = None
-	for i := 0; i < la; i++ {
+	for i := range la {
 		va, vb := older.At(i), newer.At(i)
 		thisRes := c.compareTypes(va.Type(), vb.Type())
 		if thisRes.Code() == Major {
@@ -658,8 +656,8 @@ func representable(x *types.Basic, t types.Type) bool {
 func methodMap(t types.Type) map[string]types.Object {
 	ms := types.NewMethodSet(t)
 	result := make(map[string]types.Object)
-	for i := 0; i < ms.Len(); i++ {
-		fnobj := ms.At(i).Obj()
+	for method := range ms.Methods() {
+		fnobj := method.Obj()
 		result[fnobj.Name()] = fnobj
 	}
 	return result

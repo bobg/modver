@@ -228,8 +228,7 @@ func TestGit(t *testing.T) {
 
 	// Do it once with the go-git library.
 	res, err := CompareGit(ctx, gitDir, "HEAD", "HEAD")
-	var cberr cloneBugErr
-	if errors.As(err, &cberr) {
+	if cberr, ok := errors.AsType[cloneBugErr](err); ok {
 		// Workaround for an apparent bug in go-git. See https://github.com/go-git/go-git/issues/726.
 		t.Logf("Encountered clone bug, trying workaround: %s", cberr)
 		res, err = CompareGit(ctx, "https://github.com/bobg/modver", "HEAD", "HEAD")

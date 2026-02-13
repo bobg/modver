@@ -62,7 +62,7 @@ func (mockReposService) Get(ctx context.Context, owner, reponame string) (*githu
 			Login: &owner,
 		},
 		Name:     &reponame,
-		CloneURL: ptr("cloneURL"),
+		CloneURL: new("cloneURL"),
 	}, nil, nil
 }
 
@@ -72,17 +72,17 @@ func (mockPRsService) Get(ctx context.Context, owner, reponame string, number in
 	return &github.PullRequest{
 		Base: &github.PullRequestBranch{
 			Repo: &github.Repository{
-				CloneURL: ptr("baseURL"),
+				CloneURL: new("baseURL"),
 			},
-			SHA: ptr("baseSHA"),
+			SHA: new("baseSHA"),
 		},
 		Head: &github.PullRequestBranch{
 			Repo: &github.Repository{
-				CloneURL: ptr("headURL"),
+				CloneURL: new("headURL"),
 			},
-			SHA: ptr("headSHA"),
+			SHA: new("headSHA"),
 		},
-		Number: ptr(17),
+		Number: new(17),
 	}, nil, nil
 }
 
@@ -111,13 +111,13 @@ func (m *mockIssuesService) EditComment(ctx context.Context, owner, reponame str
 
 func (m *mockIssuesService) ListComments(ctx context.Context, owner, reponame string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error) {
 	result := []*github.IssueComment{{
-		ID:   ptr(int64(1)),
-		Body: ptr("not a modver comment"),
+		ID:   new(int64(1)),
+		Body: new("not a modver comment"),
 	}}
 	if m.update {
 		result = append(result, &github.IssueComment{
-			ID:   ptr(int64(2)),
-			Body: ptr("# Modver result\n\nwoop"),
+			ID:   new(int64(2)),
+			Body: new("# Modver result\n\nwoop"),
 		})
 	}
 	return result, nil, nil
@@ -127,8 +127,4 @@ func mockComparer(result modver.Result) func(_ context.Context, _, _, _, _ strin
 	return func(_ context.Context, _, _, _, _ string) (modver.Result, error) {
 		return result, nil
 	}
-}
-
-func ptr[T any](x T) *T {
-	return &x
 }
