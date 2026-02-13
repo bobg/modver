@@ -71,7 +71,7 @@ func TestIdenticalChan(t *testing.T) {
 			types.NewChan(types.RecvOnly, resultCodeType),
 		}
 
-		for i := 0; i < len(chans); i++ {
+		for i := range chans {
 			for j := i; j < len(chans); j++ {
 				c := newComparer()
 				if got := c.identical(chans[i], chans[j]); got != (i == j) {
