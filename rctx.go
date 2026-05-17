@@ -1,5 +1,7 @@
 package modver
 
+import "go/types"
+
 type ReportContext interface{}
 
 type ArrayElem struct {
