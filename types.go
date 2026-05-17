@@ -11,47 +11,119 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-type (
-	comparer struct {
-		stack                  []typePair
-		older, newer           map[string]*packages.Package
-		oldTopObjs, newTopObjs map[string]map[string]types.Object // pkgpath -> objname -> obj
-		cache                  map[typePair]Result
-		identicache            map[typePair]bool
-	}
-	typePair struct{ a, b types.Type }
-)
+func (c *comparer) compareTypes(older, newer types.Type, rctx ReportContext) {
+	older, newer = types.Unalias(older), types.Unalias(newer)
 
-func newComparer(olders, newers []*packages.Package) *comparer {
-	oldTopObjs := make(map[string]map[string]types.Object)
-	for _, pkg := range olders {
-		oldTopObjs[pkg.PkgPath] = makeTopObjs(pkg)
-	}
+	switch older := older.(type) {
+	case *types.Array:
+		if newer, ok := newer.(*types.Array); ok {
+			if old.Len() != newer.Len() {
+				c.report.arrayLengthChanged(old.Len(), newer.Len(), rctx)
+			}
+			c.compareTypes(older.Elem(), newer.Elem(), NewArrayElemContext(rctx))
+			return
+		}
+		c.report.typeChange(older, newer, rctx)
 
-	newTopObjs := make(map[string]map[string]types.Object)
-	for _, pkg := range newers {
-		newTopObjs[pkg.PkgPath] = makeTopObjs(pkg)
-	}
+	case *types.Chan:
+		if newer, ok := newer.(*types.Chan); ok {
+			if older.Dir() != newer.Dir() {
+				c.report.chanDirChanged(older.Dir(), newer.Dir(), rctx)
+			}
+			c.compareTypes(older.Elem(), newer.Elem(), NewChanElemContext(rctx))
+			return
+		}
+		c.report.typeChange(older, newer, rctx)
 
-	return &comparer{
-		older:       makePackageMap(olders),
-		newer:       makePackageMap(newers),
-		oldTopObjs:  oldTopObjs,
-		newTopObjs:  newTopObjs,
-		cache:       make(map[typePair]Result),
-		identicache: make(map[typePair]bool),
+	case *types.Pointer:
+		if newer, ok := newer.(*types.Pointer); ok {
+			c.compareTypes(older.Elem(), newer.Elem(), NewPointerElemContext(rctx))
+			return
+		}
+		c.report.typeChange(older, newer, rctx)
+
+	case *types.Named:
+		if newer, ok := newer.(*types.Named); ok {
+			c.compareNamedTypes(older, newer, rctx)
+			return
+		}
+		c.report.typeChange(older, newer, rctx)
+
+	case *types.Struct:
+		if newer, ok := newer.(*types.Struct); ok {
+			c.compareStructs(older, newer, rctx)
+			return
+		}
+		c.report.typeChange(older, newer, rctx)
+
+	case *types.Interface:
+		if newer, ok := newer.(*types.Interface); ok {
+			c.compareInterfaces(older, newer, NewInterfaceContext(rctx))
+			return
+		}
+		c.report.typeChange(older, newer, rctx)
+
+	case *types.Signature:
+		if newer, ok := newer.(*types.Signature); ok {
+			c.compareSignatures(older, newer, NewSignatureContext(rctx))
+			return
+		}
+		c.report.typeChange(older, newer, rctx)
+
+	case *types.Map:
+		if newer, ok := newer.(*types.Map); ok {
+			c.compareTypes(older.Key(), newer.Key(), NewMapKeyContext(rctx))
+			c.compareTypes(older.Elem(), newer.Elem(), NewMapElemContext(rctx))
+			return
+		}
+		c.report.typeChange(older, newer, rctx)
+
+	case *types.Slice:
+		if newer, ok := newer.(*types.Slice); ok {
+			c.compareTypes(older.Elem(), newer.Elem(), NewSliceElemContext(rctx))
+			return
+		}
+		c.report.typeChange(older, newer, rctx)
+
+	default:
+		if !c.assignableTo(newer, older) {
+			c.report.notAssignable(newer, older, rctx)
+		}
 	}
 }
 
-func (c *comparer) run() Report {
-	return Report{
-		Major: c.compareMajor(),
-		Minor: c.compareMinor(),
-		Patch: c.comparePatchlevel(),
+func (c *comparer) compareNamedTypes(older, newer *types.Named, rctx ReportContext) {
+	rctx = NewNamedTypeContext(rctx)
+
+	olderObj, newerObj := older.Obj(), newer.Obj()
+	olderPkg, newerPkg := olderObj.Pkg(), newerObj.Pkg()
+
+	var olderPkgPath, newerPkgPath string
+	if olderPkg != nil {
+		olderPkgPath = olderPkg.Path()
 	}
+	if newerPkg != nil {
+		newerPkgPath = newerPkg.Path()
+	}
+	if olderPkgPath != newerPkgPath {
+		c.report.packageChange(olderPkgPath, newerPkgPath, rctx)
+	}
+
+	olderName, newerName := olderObj.Name(), newerObj.Name()
+	if olderName != newerName {
+		c.report.namedTypeNameChange(olderName, newerName, rctx)
+	}
+
+	olderTypeParams, newerTypeParams := older.TypeParams(), newer.TypeParams()
+	c.compareTypeParamLists(olderTypeParams, newerTypeParams, NewTypeParamListContext(rctx))
 }
 
-func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
+
+
+
+// OLD CODE BELOW HERE
+
+func (c *comparer) compareTypes(older, newer types.Type, pkgPath, objName string) {
 	older, newer = types.Unalias(older), types.Unalias(newer)
 
 	pair := typePair{a: older, b: newer}
@@ -59,9 +131,9 @@ func (c *comparer) compareTypes(older, newer types.Type) (res Result) {
 		if res == nil {
 			// Break an infinite regress,
 			// e.g. when checking type Node struct { children []*Node }
-			return None
+			return
 		}
-		return res
+		return res // xxx ?
 	}
 
 	c.cache[pair] = nil
@@ -685,50 +757,6 @@ func methodMap(t types.Type) map[string]types.Object {
 		result[fnobj.Name()] = fnobj
 	}
 	return result
-}
-
-func makePackageMap(pkgs []*packages.Package) map[string]*packages.Package {
-	result := make(map[string]*packages.Package)
-	for _, pkg := range pkgs {
-		result[pkg.PkgPath] = pkg
-	}
-	return result
-}
-
-func makeTopObjs(pkg *packages.Package) map[string]types.Object {
-	res := make(map[string]types.Object)
-	for _, file := range pkg.Syntax {
-		for _, decl := range file.Decls {
-			switch decl := decl.(type) {
-			case *ast.GenDecl:
-				for _, spec := range decl.Specs {
-					switch spec := spec.(type) {
-					case *ast.ValueSpec:
-						for _, name := range spec.Names {
-							res[name.Name] = pkg.TypesInfo.Defs[name]
-						}
-
-					case *ast.TypeSpec:
-						res[spec.Name.Name] = pkg.TypesInfo.Defs[spec.Name]
-					}
-				}
-
-			case *ast.FuncDecl:
-				// If decl is a method, qualify the name with the receiver type.
-				name := decl.Name.Name
-				if decl.Recv != nil && len(decl.Recv.List) > 0 {
-					recv := decl.Recv.List[0].Type
-					if info := pkg.TypesInfo.Types[recv]; info.Type != nil {
-						name = types.TypeString(info.Type, types.RelativeTo(pkg.Types)) + "." + name
-					}
-				}
-
-				res[name] = pkg.TypesInfo.Defs[decl.Name]
-			}
-		}
-	}
-
-	return res
 }
 
 func structMap(t *types.Struct) map[string]int {

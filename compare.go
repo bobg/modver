@@ -18,7 +18,88 @@ import (
 
 func Compare(olders, newers []*packages.Package) Report {
 	c := newComparer(olders, newers)
-	return c.run()
+	c.run()
+	return c.report
+}
+
+type (
+	comparer struct {
+		stack                  []typePair
+		older, newer           map[string]*packages.Package
+		oldTopObjs, newTopObjs map[string]map[string]types.Object // pkgpath -> objname -> obj
+		cache                  map[typePair]Result
+		identicache            map[typePair]bool
+		report                 Report
+	}
+	typePair struct{ a, b types.Type }
+)
+
+func newComparer(olders, newers []*packages.Package) *comparer {
+	oldTopObjs := make(map[string]map[string]types.Object)
+	for _, pkg := range olders {
+		oldTopObjs[pkg.PkgPath] = makeTopObjs(pkg)
+	}
+
+	newTopObjs := make(map[string]map[string]types.Object)
+	for _, pkg := range newers {
+		newTopObjs[pkg.PkgPath] = makeTopObjs(pkg)
+	}
+
+	return &comparer{
+		older:       makePackageMap(olders),
+		newer:       makePackageMap(newers),
+		oldTopObjs:  oldTopObjs,
+		newTopObjs:  newTopObjs,
+		cache:       make(map[typePair]Result),
+		identicache: make(map[typePair]bool),
+	}
+}
+
+func (c *comparer) run() {
+	for pkgPath, pkg := range c.older {
+		c.compareOldPkg(pkgPath, pkg)
+	}
+	for pkgPath, pkg := range c.newer {
+		if _, ok := c.older[pkgPath]; ok {
+			// Already compared in compareOldPkg.
+			continue
+		}
+		c.report.packageAdded(pkgPath)
+	}
+}
+
+func (c *comparer) compareOldPkg(oldPkgPath string, oldPkg *packages.Package) {
+	newPkg, ok := c.newer[oldPkgPath]
+	if !ok {
+		c.report.packageRemoved(oldPkgPath)
+		return
+	}
+	c.comparePkgs(oldPkgPath, oldPkg, newPkg)
+}
+
+func (c *comparer) comparePkgs(pkgPath string, oldPkg, newPkg *packages.Package) {
+	c.compareModule(pkgPath, oldPkg.Module, newPkg.Module)
+
+	oldTopObjs := c.oldTopObjs[pkgPath]
+
+	for objName, obj := range oldTopObjs {
+		c.compareOldObj(pkgPath, objName, obj)
+	}
+	for objName, obj := range c.newTopObjs[pkgPath] {
+		if _, ok := oldTopObjs[objName]; ok {
+			// Already compared in previous loop.
+			continue
+		}
+		c.report.objectAdded(pkgPath, objName, obj)
+	}
+}
+
+func (c *comparer) compareOldObj(pkgPath, objName string, oldObj types.Object) {
+	newObj, ok := c.newTopObjs[pkgPath][objName]
+	if !ok {
+		c.report.objectRemoved(pkgPath, objName, oldObj)
+	}
+	c.compareTypes(oldObj.Type(), newObj.Type(), pkgPath, objName)
 }
 
 func isPublic(pkgpath string) bool {
@@ -71,47 +152,6 @@ func (c *comparer) compareMajorPkg(pkgPath string, pkg *packages.Package) Xxx {
 		if newObj == nil {
 			// xxx accumulate "no object %s in new version of package %s"
 			continue
-		}
-
-
-
-=======
-		var (
-			topObjs    = makeTopObjs(pkg)
-			newTopObjs map[string]types.Object
-			newPkg     = newer[pkgPath]
-		)
-
-		for id, obj := range topObjs {
-			if !isExported(id) {
-				continue
-			}
-
-			// Is obj an exported method of an unexported type? (https://github.com/bobg/modver/issues/36)
-			if sig, ok := obj.Type().(*types.Signature); ok {
-				if recv := sig.Recv(); recv != nil {
-					if named, ok := recv.Type().(*types.Named); ok {
-						if !named.Obj().Exported() {
-							continue
-						}
-					}
-				}
-			}
-
-			if newPkg == nil {
-				return rwrapf(Major, "no new version of package %s", pkgPath)
-			}
-			if newTopObjs == nil {
-				newTopObjs = makeTopObjs(newPkg)
-			}
-			newObj := newTopObjs[id]
-			if newObj == nil {
-				return rwrapf(Major, "no object %s in new version of package %s", id, pkgPath)
-			}
-			if res := c.compareTypes(obj.Type(), newObj.Type()); res.Code() == Major {
-				return rwrapf(res, "checking %s", id)
-			}
->>>>>>> master
 		}
 
 		xxx := c.compareTypes(obj.Type(), newObj.Type())
@@ -356,4 +396,48 @@ func isExported(name string) bool {
 		name = name[i+1:]
 	}
 	return ast.IsExported(name)
+}
+
+func makePackageMap(pkgs []*packages.Package) map[string]*packages.Package {
+	result := make(map[string]*packages.Package)
+	for _, pkg := range pkgs {
+		result[pkg.PkgPath] = pkg
+	}
+	return result
+}
+
+func makeTopObjs(pkg *packages.Package) map[string]types.Object {
+	res := make(map[string]types.Object)
+	for _, file := range pkg.Syntax {
+		for _, decl := range file.Decls {
+			switch decl := decl.(type) {
+			case *ast.GenDecl:
+				for _, spec := range decl.Specs {
+					switch spec := spec.(type) {
+					case *ast.ValueSpec:
+						for _, name := range spec.Names {
+							res[name.Name] = pkg.TypesInfo.Defs[name]
+						}
+
+					case *ast.TypeSpec:
+						res[spec.Name.Name] = pkg.TypesInfo.Defs[spec.Name]
+					}
+				}
+
+			case *ast.FuncDecl:
+				// If decl is a method, qualify the name with the receiver type.
+				name := decl.Name.Name
+				if decl.Recv != nil && len(decl.Recv.List) > 0 {
+					recv := decl.Recv.List[0].Type
+					if info := pkg.TypesInfo.Types[recv]; info.Type != nil {
+						name = types.TypeString(info.Type, types.RelativeTo(pkg.Types)) + "." + name
+					}
+				}
+
+				res[name] = pkg.TypesInfo.Defs[decl.Name]
+			}
+		}
+	}
+
+	return res
 }

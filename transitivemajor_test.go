@@ -3,7 +3,7 @@ package modver_test
 import (
 	"testing"
 
-	"github.com/bobg/modver/v2"
+	"github.com/bobg/modver/v3"
 )
 
 func TestTransitiveMajor(t *testing.T) {
