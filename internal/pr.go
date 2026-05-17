@@ -129,5 +129,5 @@ func commentBody(result modver.Result) (string, error) {
 
 	out := new(bytes.Buffer)
 	err := commentTpl.Execute(out, s)
-	return out.String(), err
+	return out.String(), errors.Wrap(err, "executing comment template")
 }

@@ -203,7 +203,7 @@ func executeTmpl(tmpl *template.Template, w io.Writer) error {
 func executeTmplToFile(tmpl *template.Template, filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "creating file %s", filename)
 	}
 	defer f.Close()
 	return executeTmpl(tmpl, f)
