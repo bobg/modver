@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/bobg/errors v1.3.0
-	github.com/go-git/go-git/v5 v5.19.0
+	github.com/go-git/go-git/v5 v5.19.1
 	github.com/google/go-github/v50 v50.2.0
 	golang.org/x/mod v0.40.0
 	golang.org/x/oauth2 v0.36.0
