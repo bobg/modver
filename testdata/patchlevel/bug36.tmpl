@@ -5,10 +5,12 @@ package bug36
 
 type Intf interface {
   Method()
+  PtrMethod()
 }
 
 type unexp struct{}
 func (unexp) Method() {}
+func (*unexp) PtrMethod() {}
 
 // {{ end }}
 
@@ -17,5 +19,10 @@ package bug36
 
 type Intf interface {
   Method()
+  PtrMethod()
 }
+
+type unexp2 struct{}
+func (unexp2) NewMethod() {}
+func (*unexp2) NewPtrMethod() {}
 // {{ end }}
