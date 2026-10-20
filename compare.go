@@ -124,14 +124,8 @@ func (c *comparer) compareMajor(older, newer map[string]*packages.Package) Resul
 			}
 
 			// Is obj an exported method of an unexported type? (https://github.com/bobg/modver/issues/36)
-			if sig, ok := obj.Type().(*types.Signature); ok {
-				if recv := sig.Recv(); recv != nil {
-					if named, ok := recv.Type().(*types.Named); ok {
-						if !named.Obj().Exported() {
-							continue
-						}
-					}
-				}
+			if isMethodOfUnexportedType(obj) {
+				continue
 			}
 
 			if newPkg == nil {
@@ -177,6 +171,12 @@ func (c *comparer) compareMinor(older, newer map[string]*packages.Package) Resul
 			if !isExported(id) {
 				continue
 			}
+
+			// Is obj an exported method of an unexported type? (https://github.com/bobg/modver/issues/36)
+			if isMethodOfUnexportedType(obj) {
+				continue
+			}
+
 			if oldPkg == nil {
 				return rwrapf(Minor, "no old version of package %s", pkgPath)
 			}
@@ -388,4 +388,23 @@ func isExported(name string) bool {
 		name = name[i+1:]
 	}
 	return ast.IsExported(name)
+}
+
+func isMethodOfUnexportedType(obj types.Object) bool {
+	sig, ok := obj.Type().(*types.Signature)
+	if !ok {
+		return false
+	}
+	recv := sig.Recv()
+	if recv == nil {
+		return false
+	}
+	recvType := recv.Type()
+	if ptr, ok := recvType.(*types.Pointer); ok {
+		recvType = ptr.Elem()
+	}
+	if named, ok := recvType.(*types.Named); ok {
+		return !named.Obj().Exported()
+	}
+	return false
 }
